@@ -22,6 +22,9 @@ import com.ethran.notable.data.model.BackgroundType
 import com.ethran.notable.data.model.BackgroundType.AutoPdf.getPage
 import com.ethran.notable.data.model.BackgroundType.CoverImage
 import com.ethran.notable.data.model.BackgroundType.ImageRepeating
+import com.ethran.notable.data.model.PageLayer
+import com.ethran.notable.data.model.PageLayerState
+import com.ethran.notable.data.model.PageLayers
 import com.ethran.notable.editor.canvas.CanvasEventBus
 import com.ethran.notable.editor.utils.saveHQPagePreview
 import com.ethran.notable.editor.utils.savePageThumbnail
@@ -34,6 +37,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.launch
 import java.io.File
@@ -846,11 +852,58 @@ class PageDataManager @Inject constructor(
         pageFromDb?.notebookId?.let { notebookId ->
             currentPageNumber = appRepository.getPageNumber(notebookId, pageId)
         }
+        loadLayerState(pageFromDb!!)
         synchronized(lock) { entries[pageId]?.let { touchLocked(it) } }
+    }
+
+    /** --- layers of the current page ---- **/
+
+    private val _layerState = MutableStateFlow(PageLayerState())
+
+    /** Layers of the current page; the source of truth is `Page.layers` of [pageFromDb]. */
+    val layerState: StateFlow<PageLayerState> = _layerState.asStateFlow()
+
+    /** Lock-free snapshot for the drawing thread. */
+    fun currentLayers(): List<PageLayer> = _layerState.value.layers
+
+    fun activeLayerId(): Int = _layerState.value.activeLayer.id
+
+    // Keeps the active layer when the same page is reloaded; new content goes to the top layer
+    // of a freshly opened page.
+    private fun loadLayerState(page: Page) {
+        val layers = PageLayers.decode(page.layers)
+        val previous = _layerState.value
+        val active = previous.activeLayerId.takeIf { previous.pageId == page.id && layers.any { l -> l.id == it } }
+            ?: layers.last().id
+        _layerState.value = PageLayerState(page.id, layers, active)
+    }
+
+    fun setActiveLayer(layerId: Int) {
+        _layerState.value.let { state ->
+            if (state.layers.any { it.id == layerId }) _layerState.value = state.copy(activeLayerId = layerId)
+        }
+    }
+
+    /**
+     * Replaces the current page's layer list and persists it. The active layer falls back to the
+     * top layer when it was removed.
+     */
+    fun updateLayers(layers: List<PageLayer>, activeLayerId: Int = _layerState.value.activeLayerId) {
+        val page = pageFromDb ?: return
+        val list = layers.ifEmpty { PageLayers.DEFAULT }
+        val active = activeLayerId.takeIf { id -> list.any { it.id == id } } ?: list.last().id
+        val encoded = PageLayers.encode(list)
+        pageFromDb = page.copy(layers = encoded)
+        _layerState.value = PageLayerState(page.id, list, active)
+        launchDbWrite("updateLayers(${list.size})") {
+            appRepository.pageRepository.updateLayers(page.id, encoded)
+            bumpEditTimestamps()
+        }
     }
 
     suspend fun refreshPageFromDb(pageId: String) {
         pageFromDb = appRepository.pageRepository.getById(pageId)
+        pageFromDb?.let { loadLayerState(it) }
         log.i("Refresh current page, background: ${pageFromDb?.background}")
     }
 

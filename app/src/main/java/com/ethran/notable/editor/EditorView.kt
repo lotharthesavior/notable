@@ -171,6 +171,9 @@ fun EditorView(
                         CanvasEventBus.reloadFromDb.emit(Unit)
                     }
 
+                    CanvasCommand.RedrawCanvas -> editorControlTower.redrawCanvas()
+                    is CanvasCommand.DeleteLayer -> editorControlTower.deleteLayer(command.layerId)
+
                     is CanvasCommand.CopyImageToCanvas -> {
                         CanvasEventBus.addImageByUri.value = command.uri
                     }

@@ -11,6 +11,7 @@ import com.ethran.notable.editor.utils.Pen
 import compose.icons.FeatherIcons
 import compose.icons.feathericons.Clipboard
 import compose.icons.feathericons.EyeOff
+import compose.icons.feathericons.Layers
 import compose.icons.feathericons.RefreshCcw
 
 /**
@@ -94,6 +95,12 @@ object ToolbarElements {
             icon = IconRef.Drawable(R.drawable.home),
             contentDescription = "library",
             action = ToolbarAction.NavigateToHome,
+        ),
+        ActionElement(
+            id = ToolbarElementId.LAYERS,
+            icon = IconRef.Vector(FeatherIcons.Layers),
+            contentDescription = "layers",
+            action = ToolbarAction.ToggleLayersPanel(true),
         ),
         CustomElement(
             id = ToolbarElementId.MENU,

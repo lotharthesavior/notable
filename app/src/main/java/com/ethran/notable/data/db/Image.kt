@@ -9,6 +9,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import com.ethran.notable.data.model.PageLayers
 import java.util.Date
 import java.util.UUID
 import javax.inject.Inject
@@ -40,7 +41,11 @@ data class Image(
     val pageId: String,
 
     val createdAt: Date = Date(),
-    val updatedAt: Date = Date()
+    val updatedAt: Date = Date(),
+
+    // Id of the page layer the image belongs to, see PageLayers.
+    @ColumnInfo(defaultValue = "0")
+    val layer: Int = PageLayers.DEFAULT_LAYER_ID,
 )
 
 // DAO for image operations

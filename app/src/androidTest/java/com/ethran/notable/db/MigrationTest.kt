@@ -223,4 +223,58 @@ class MigrationTest {
 
         roomDb.close()
     }
+
+    @Test(timeout = 60000)
+    @Throws(IOException::class)
+    fun migrate37To38_putsExistingContentOnTheDefaultLayer() {
+        val dbName = "migration-test-38"
+
+        // 1. Create the v37 schema with a page, a stroke and an image (no layer columns yet).
+        val oldDb = helper.createDatabase(dbName, 37)
+        oldDb.execSQL(
+            """
+            INSERT INTO Page (id, scroll, notebookId, background, backgroundType, parentFolderId, createdAt, updatedAt)
+            VALUES ('page1', 0, NULL, 'blank', 'native', NULL, 1620000000000, 1620000000000)
+            """.trimIndent()
+        )
+        oldDb.execSQL(
+            """
+            INSERT INTO Stroke (id, size, pen, color, maxPressure, top, bottom, `left`, `right`, points, pageId, createdAt, updatedAt)
+            VALUES ('stroke1', 2.0, 'BALLPEN', -16777216, 1, 0, 10, 0, 10, X'', 'page1', 1620000000000, 1620000000000)
+            """.trimIndent()
+        )
+        oldDb.execSQL(
+            """
+            INSERT INTO Image (id, x, y, height, width, uri, pageId, createdAt, updatedAt)
+            VALUES ('image1', 0, 0, 10, 10, NULL, 'page1', 1620000000000, 1620000000000)
+            """.trimIndent()
+        )
+        oldDb.close()
+
+        // 2. Migrate to 38 and validate against the exported schema.
+        val migratedDb = helper.runMigrationsAndValidate(dbName, 38, true)
+
+        // 3. Existing content lands on layer 0 and the page keeps the implicit single layer.
+        migratedDb.query("SELECT layers FROM Page WHERE id = 'page1'").use {
+            assertTrue(it.moveToFirst())
+            assertTrue(it.isNull(0))
+        }
+        migratedDb.query("SELECT layer FROM Stroke WHERE id = 'stroke1'").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+        }
+        migratedDb.query("SELECT layer FROM Image WHERE id = 'image1'").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+        }
+
+        // 4. The new columns are writable.
+        migratedDb.execSQL("UPDATE Page SET layers = '[{\"id\":0,\"name\":\"Base\"}]' WHERE id = 'page1'")
+        migratedDb.execSQL("UPDATE Stroke SET layer = 3 WHERE id = 'stroke1'")
+        migratedDb.query("SELECT layer FROM Stroke WHERE id = 'stroke1'").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(3, it.getInt(0))
+        }
+        migratedDb.close()
+    }
 }

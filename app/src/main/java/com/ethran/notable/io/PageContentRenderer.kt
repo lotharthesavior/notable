@@ -18,6 +18,7 @@ import com.ethran.notable.data.db.PageWithData
 import com.ethran.notable.data.db.getBackgroundType
 import com.ethran.notable.data.model.BackgroundType
 import com.ethran.notable.data.model.BackgroundType.Native
+import com.ethran.notable.data.model.PageLayers
 import com.ethran.notable.editor.drawing.drawBg
 import com.ethran.notable.editor.drawing.drawImage
 import com.ethran.notable.editor.drawing.StrokeRenderers
@@ -124,8 +125,14 @@ class PageContentRenderer @Inject constructor(
                 repeat = resolvedBackgroundType is BackgroundType.ImageRepeating
             )
 
-            data.images.forEach { drawImage(context, canvas, it, -scroll) }
-            data.strokes.forEach { StrokeRenderers.current.drawStroke(canvas, it, -scroll) }
+            // Visible layers only, bottom first; within a layer images go under strokes.
+            val layers = PageLayers.decode(data.page.layers)
+            val imagesByLayer = PageLayers.byVisibleLayer(data.images, layers) { it.layer }
+            val strokesByLayer = PageLayers.byVisibleLayer(data.strokes, layers) { it.layer }
+            for (layerIndex in strokesByLayer.indices) {
+                imagesByLayer[layerIndex].forEach { drawImage(context, canvas, it, -scroll) }
+                strokesByLayer[layerIndex].forEach { StrokeRenderers.current.drawStroke(canvas, it, -scroll) }
+            }
         }
     }
 

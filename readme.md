@@ -248,6 +248,7 @@ Notable is not distributed on Google Play or F-Droid. Official builds are provid
 
 - Project file layout: see [docs/file-structure.md](./docs/file-structure.md)  
 - Data model and stroke encoding: see [docs/database-structure.md](./docs/database-structure.md)  
+- Page layers: see [docs/layers.md](./docs/layers.md)  
 - Scripted drawing over adb: see [docs/live-draw.md](./docs/live-draw.md)  
 - Additional documentation will be added as needed  
   Note: These documents were AI-generated and lightly verified; refer to the code for the authoritative source.

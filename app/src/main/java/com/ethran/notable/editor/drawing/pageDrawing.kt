@@ -16,6 +16,7 @@ import androidx.core.net.toUri
 import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.Image
 import com.ethran.notable.data.model.BackgroundType
+import com.ethran.notable.data.model.PageLayers
 import com.ethran.notable.editor.PageView
 import com.ethran.notable.editor.canvas.CanvasEventBus
 import com.ethran.notable.editor.utils.imageBounds
@@ -162,40 +163,46 @@ fun drawOnCanvasFromPage(
         if (GlobalAppSettings.current.debugMode) {
             drawDebugRectWithLabels(canvas, RectF(canvasClipBounds), Color.BLACK)
         }
-        try {
-            page.images.forEach { image ->
-                if (ignoredImageIds.contains(image.id)) return@forEach
-                pageDrawingLog.i("PageView.kt: drawing image!")
-                val bounds = imageBounds(image)
-                // if stroke is not inside page section
-                if (!bounds.toRect().intersect(pageArea)) return@forEach
-                drawImage(page.context, this, image, -page.scroll).onError { error ->
-                    pageDrawingLog.e("Individual image failed: ${error.userMessage}")
-                    persistentError = persistentError?.let { it + error } ?: error
+        val layers = page.layers
+        val imagesByLayer = PageLayers.byVisibleLayer(page.images, layers) { it.layer }
+        val strokesByLayer = PageLayers.byVisibleLayer(page.strokes, layers) { it.layer }
+        // Bottom layer first; within a layer images go under strokes.
+        for (layerIndex in strokesByLayer.indices) {
+            try {
+                imagesByLayer[layerIndex].forEach { image ->
+                    if (ignoredImageIds.contains(image.id)) return@forEach
+                    pageDrawingLog.i("PageView.kt: drawing image!")
+                    val bounds = imageBounds(image)
+                    // if stroke is not inside page section
+                    if (!bounds.toRect().intersect(pageArea)) return@forEach
+                    drawImage(page.context, this, image, -page.scroll).onError { error ->
+                        pageDrawingLog.e("Individual image failed: ${error.userMessage}")
+                        persistentError = persistentError?.let { it + error } ?: error
+                    }
                 }
+            } catch (e: Exception) {
+                pageDrawingLog.e("PageView.kt(${page.currentPageId}): Images failed", e)
+                val error = if (e.message?.contains("permission") == true) {
+                    DomainError.DrawingError("Permission denied: Unable to access image.")
+                } else {
+                    DomainError.DrawingError("Failed to load images.")
+                }
+                persistentError = persistentError?.let { it + error } ?: error
             }
-        } catch (e: Exception) {
-            pageDrawingLog.e("PageView.kt(${page.currentPageId}): Images failed", e)
-            val error = if (e.message?.contains("permission") == true) {
-                DomainError.DrawingError("Permission denied: Unable to access image.")
-            } else {
-                DomainError.DrawingError("Failed to load images.")
-            }
-            persistentError = persistentError?.let { it + error } ?: error
-        }
-        try {
-            page.strokes.forEach { stroke ->
-                if (ignoredStrokeIds.contains(stroke.id)) return@forEach
-                val bounds = strokeBounds(stroke)
-                // if stroke is not inside page section
-                if (!bounds.toRect().intersect(pageArea)) return@forEach
+            try {
+                strokesByLayer[layerIndex].forEach { stroke ->
+                    if (ignoredStrokeIds.contains(stroke.id)) return@forEach
+                    val bounds = strokeBounds(stroke)
+                    // if stroke is not inside page section
+                    if (!bounds.toRect().intersect(pageArea)) return@forEach
 
-                StrokeRenderers.current.drawStroke(this, stroke, -page.scroll)
+                    StrokeRenderers.current.drawStroke(this, stroke, -page.scroll)
+                }
+            } catch (e: Exception) {
+                val error = DomainError.DrawingError("Strokes failed: ${e.message ?: e.toString()}")
+                pageDrawingLog.e("PageView.kt: ${error.userMessage}", e)
+                persistentError = persistentError?.let { it + error } ?: error
             }
-        } catch (e: Exception) {
-            val error = DomainError.DrawingError("Strokes failed: ${e.message ?: e.toString()}")
-            pageDrawingLog.e("PageView.kt: ${error.userMessage}", e)
-            persistentError = persistentError?.let { it + error } ?: error
         }
     }
     pageDrawingLog.d(

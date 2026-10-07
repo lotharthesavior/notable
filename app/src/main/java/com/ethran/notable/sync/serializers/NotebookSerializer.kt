@@ -137,7 +137,8 @@ object NotebookSerializer {
             parentFolderId = page.parentFolderId,
             scroll = page.scroll,
             createdAt = page.createdAt.toInstant().toString(),
-            updatedAt = page.updatedAt.toInstant().toString()
+            updatedAt = page.updatedAt.toInstant().toString(),
+            layers = page.layers
         )
         // Write the page object's scalar fields, drop the closing brace, then splice the arrays.
         val headerJson = compactJson.encodeToString(header)
@@ -161,7 +162,8 @@ object NotebookSerializer {
                 right = stroke.right,
                 pointsData = base64Data,
                 createdAt = stroke.createdAt.toInstant().toString(),
-                updatedAt = stroke.updatedAt.toInstant().toString()
+                updatedAt = stroke.updatedAt.toInstant().toString(),
+                layer = stroke.layer
             )
             writer.write(compactJson.encodeToString(dto))
         }
@@ -179,7 +181,8 @@ object NotebookSerializer {
                 height = image.height,
                 uri = convertToRelativeUri(image.uri),
                 createdAt = image.createdAt.toInstant().toString(),
-                updatedAt = image.updatedAt.toInstant().toString()
+                updatedAt = image.updatedAt.toInstant().toString(),
+                layer = image.layer
             )
             writer.write(compactJson.encodeToString(dto))
         }
@@ -211,7 +214,8 @@ object NotebookSerializer {
                 parentFolderId = pageDto.parentFolderId,
                 scroll = pageDto.scroll,
                 createdAt = pageCreated,
-                updatedAt = pageUpdated
+                updatedAt = pageUpdated,
+                layers = pageDto.layers
             )
 
             val strokes = pageDto.strokes.mapNotNull { strokeDto ->
@@ -240,7 +244,8 @@ object NotebookSerializer {
                         points = points,
                         pageId = pageDto.id,
                         createdAt = created,
-                        updatedAt = updated
+                        updatedAt = updated,
+                        layer = strokeDto.layer
                         // Remote data may carry raw-scale pressure; normalize to [0, 1].
                     ).withNormalizedPressure()
                 } catch (e: Exception) {
@@ -267,7 +272,8 @@ object NotebookSerializer {
                         uri = imageDto.uri,
                         pageId = pageDto.id,
                         createdAt = created,
-                        updatedAt = updated
+                        updatedAt = updated,
+                        layer = imageDto.layer
                     )
                 } catch (e: Exception) {
                     logCallStack(reason = "Skipping corrupted image ${imageDto.id}: ${e.message}")
@@ -360,7 +366,9 @@ object NotebookSerializer {
         val parentFolderId: String?,
         val scroll: Int,
         val createdAt: String,
-        val updatedAt: String
+        val updatedAt: String,
+        // Page layers as stored in Page.layers; absent (null) for single-layer pages and older clients.
+        val layers: String? = null
     )
 
     @Serializable
@@ -374,6 +382,7 @@ object NotebookSerializer {
         val scroll: Int,
         val createdAt: String,
         val updatedAt: String,
+        val layers: String? = null,
         val strokes: List<StrokeDto>,
         val images: List<ImageDto>
     )
@@ -391,7 +400,8 @@ object NotebookSerializer {
         val right: Float,
         val pointsData: String,
         val createdAt: String,
-        val updatedAt: String
+        val updatedAt: String,
+        val layer: Int = 0
     )
 
     @Serializable
@@ -403,6 +413,7 @@ object NotebookSerializer {
         val height: Int,
         val uri: String?,
         val createdAt: String,
-        val updatedAt: String
+        val updatedAt: String,
+        val layer: Int = 0
     )
 }

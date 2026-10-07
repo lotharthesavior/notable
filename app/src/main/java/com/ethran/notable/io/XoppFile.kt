@@ -23,6 +23,8 @@ import com.ethran.notable.data.db.StrokePoint
 import com.ethran.notable.data.ensureImagesFolder
 import com.ethran.notable.data.events.AppEvent
 import com.ethran.notable.data.events.AppEventBus
+import com.ethran.notable.data.model.PageLayer
+import com.ethran.notable.data.model.PageLayers
 import com.ethran.notable.editor.utils.Pen
 import com.ethran.notable.utils.ensureNotMainThread
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -152,75 +154,87 @@ class XoppFile @Inject constructor(
             writer.write(height.toString())
             writer.write("\">\n")
             writer.write("<background type=\"solid\" color=\"#ffffffff\" style=\"plain\"/>\n")
-            writer.write("<layer>\n")
+            // One <layer> per page layer, bottom first. Hidden layers are exported too: the
+            // format has no visibility flag, and the export should not lose content.
+            val layers = PageLayers.decode(pageWithData.page.layers)
+            for (layer in layers) {
+                val layerStrokes = PageLayers.inLayer(strokes, layers, layer.id) { it.layer }
+                val layerImages = PageLayers.inLayer(images, layers, layer.id) { it.layer }
+                if (layers.size == 1) writer.write("<layer>\n")
+                else {
+                    writer.write("<layer name=\"")
+                    writer.write(escapeXml(layer.name))
+                    writer.write("\">\n")
+                }
 
-            for (stroke in strokes) {
-                if (stroke.points.size < 3) continue
+                for (stroke in layerStrokes) {
+                    if (stroke.points.size < 3) continue
 
-                writer.write("<stroke tool=\"")
-                writer.write(escapeXml(stroke.pen.toString()))
-                writer.write("\" color=\"")
-                writer.write(escapeXml(getColorName(Color(stroke.color))))
-                writer.write("\" width=\"")
-                writer.write((stroke.size * scaleFactor).toString())
+                    writer.write("<stroke tool=\"")
+                    writer.write(escapeXml(stroke.pen.toString()))
+                    writer.write("\" color=\"")
+                    writer.write(escapeXml(getColorName(Color(stroke.color))))
+                    writer.write("\" width=\"")
+                    writer.write((stroke.size * scaleFactor).toString())
 
-                if ((stroke.pen == Pen.FOUNTAIN) || (stroke.pen == Pen.BRUSH) || (stroke.pen == Pen.PENCIL) ||
-                    (stroke.pen == Pen.CHARCOAL) || (stroke.pen == Pen.CALLIGRAPHY)
-                ) {
+                    if ((stroke.pen == Pen.FOUNTAIN) || (stroke.pen == Pen.BRUSH) || (stroke.pen == Pen.PENCIL) ||
+                        (stroke.pen == Pen.CHARCOAL) || (stroke.pen == Pen.CALLIGRAPHY)
+                    ) {
+                        stroke.points.forEach { point ->
+                            writer.write(" ")
+                            writer.write(
+                                (point.pressure?.div(stroke.maxPressure * PRESSURE_FACTOR)
+                                    ?: 1f).toString()
+                            )
+                        }
+                    }
+
+                    writer.write("\">")
+                    var firstPoint = true
                     stroke.points.forEach { point ->
+                        if (!firstPoint) writer.write(" ")
+                        writer.write((point.x * scaleFactor).toString())
                         writer.write(" ")
-                        writer.write(
-                            (point.pressure?.div(stroke.maxPressure * PRESSURE_FACTOR)
-                                ?: 1f).toString()
-                        )
+                        writer.write((point.y * scaleFactor).toString())
+                        firstPoint = false
+                    }
+                    writer.write("</stroke>\n")
+                }
+
+                for (image in layerImages) {
+                    val left = image.x * scaleFactor
+                    val top = image.y * scaleFactor
+                    val right = (image.x + image.width) * scaleFactor
+                    val bottom = (image.y + image.height) * scaleFactor
+
+                    val uri = image.uri
+                    if (uri.isNullOrBlank()) {
+                        appEventBus.tryEmit(AppEvent.ActionHint("Image cannot be loaded."))
+                        continue
+                    }
+
+                    writer.write("<image left=\"")
+                    writer.write(left.toString())
+                    writer.write("\" top=\"")
+                    writer.write(top.toString())
+                    writer.write("\" right=\"")
+                    writer.write(right.toString())
+                    writer.write("\" bottom=\"")
+                    writer.write(bottom.toString())
+                    writer.write("\" filename=\"")
+                    writer.write(escapeXml(uri))
+                    writer.write("\">")
+
+                    val imageWasWritten = writeImageBase64ToWriter(uri, writer)
+                    writer.write("</image>\n")
+
+                    if (!imageWasWritten) {
+                        appEventBus.tryEmit(AppEvent.ActionHint("Image cannot be loaded."))
                     }
                 }
 
-                writer.write("\">")
-                var firstPoint = true
-                stroke.points.forEach { point ->
-                    if (!firstPoint) writer.write(" ")
-                    writer.write((point.x * scaleFactor).toString())
-                    writer.write(" ")
-                    writer.write((point.y * scaleFactor).toString())
-                    firstPoint = false
-                }
-                writer.write("</stroke>\n")
+                writer.write("</layer>\n")
             }
-
-            for (image in images) {
-                val left = image.x * scaleFactor
-                val top = image.y * scaleFactor
-                val right = (image.x + image.width) * scaleFactor
-                val bottom = (image.y + image.height) * scaleFactor
-
-                val uri = image.uri
-                if (uri.isNullOrBlank()) {
-                    appEventBus.tryEmit(AppEvent.ActionHint("Image cannot be loaded."))
-                    continue
-                }
-
-                writer.write("<image left=\"")
-                writer.write(left.toString())
-                writer.write("\" top=\"")
-                writer.write(top.toString())
-                writer.write("\" right=\"")
-                writer.write(right.toString())
-                writer.write("\" bottom=\"")
-                writer.write(bottom.toString())
-                writer.write("\" filename=\"")
-                writer.write(escapeXml(uri))
-                writer.write("\">")
-
-                val imageWasWritten = writeImageBase64ToWriter(uri, writer)
-                writer.write("</image>\n")
-
-                if (!imageWasWritten) {
-                    appEventBus.tryEmit(AppEvent.ActionHint("Image cannot be loaded."))
-                }
-            }
-
-            writer.write("</layer>\n")
             writer.write("</page>\n")
         }
 
@@ -315,7 +329,8 @@ class XoppFile @Inject constructor(
      *    off ownership of the list; the caller must not hold a reference after returning.
      *
      * 3. [onPageFinalized] — called once when all strokes and images for the page have been
-     *    delivered. The [images] list is complete at this point.
+     *    delivered. The [images] list is complete at this point, and [layers] is the page's
+     *    `Page.layers` value built from its `<layer>` elements (null for a single unnamed layer).
      *
      * Example migration in ImportEngine (or wherever importBook is called):
      * ```
@@ -329,7 +344,7 @@ class XoppFile @Inject constructor(
      *     uri,
      *     onPageCreated   = { page   -> pageRepo.insertPage(page) },
      *     onStrokeBatch   = { batch  -> strokeRepo.insertAll(batch) },
-     *     onPageFinalized = { pageId, images -> imageRepo.insertAll(images) },
+     *     onPageFinalized = { pageId, images, layers -> imageRepo.insertAll(images) },
      * )
      * ```
      */
@@ -337,7 +352,7 @@ class XoppFile @Inject constructor(
         uri: Uri,
         onPageCreated: suspend (Page) -> Unit,
         onStrokeBatch: suspend (List<Stroke>) -> Unit,
-        onPageFinalized: suspend (pageId: String, images: List<Image>) -> Unit,
+        onPageFinalized: suspend (pageId: String, images: List<Image>, layers: String?) -> Unit,
     ) = withContext(Dispatchers.IO) {
         log.v("Importing book from $uri")
         ensureNotMainThread("xoppImportBook")
@@ -357,10 +372,11 @@ class XoppFile @Inject constructor(
                         if (eventType == XmlPullParser.START_TAG && parser.name == "page") {
                             val page = Page()
                             onPageCreated(page)
+                            val layers = mutableListOf<PageLayer>()
                             val images = parsePageContentStreaming(
-                                parser, page, parseState, onStrokeBatch
+                                parser, page, parseState, layers, onStrokeBatch
                             )
-                            onPageFinalized(page.id, images)
+                            onPageFinalized(page.id, images, PageLayers.encode(layers))
                             pageCount++
                         }
                         eventType = parser.next()
@@ -381,13 +397,18 @@ class XoppFile @Inject constructor(
      * Ownership of each batch ArrayList is transferred to the caller on each [onStrokeBatch]
      * invocation; a fresh list is started immediately after, so old stroke objects become
      * unreachable as soon as the caller's suspend function returns.
+     *
+     * Each `<layer>` becomes a page layer, added to [layers] in document order (bottom first);
+     * content outside any layer goes to the first one.
      */
     private suspend fun parsePageContentStreaming(
         parser: XmlPullParser,
         page: Page,
         state: ParseState,
+        layers: MutableList<PageLayer>,
         onStrokeBatch: suspend (List<Stroke>) -> Unit,
     ): List<Image> {
+        var layerId = PageLayers.DEFAULT_LAYER_ID
         val images = mutableListOf<Image>()
         // Pre-sized to the batch limit so the backing array is never re-allocated mid-batch.
         var strokeBatch = ArrayList<Stroke>(STROKE_SAVE_BATCH_SIZE)
@@ -398,8 +419,15 @@ class XoppFile @Inject constructor(
         ) {
             if (eventType == XmlPullParser.START_TAG) {
                 when (parser.name) {
+                    "layer" -> {
+                        layerId = layers.size
+                        val name = parser.getAttributeValue(null, "name")?.trim()
+                            ?.takeIf { it.isNotEmpty() } ?: "Layer ${layers.size + 1}"
+                        layers.add(PageLayer(id = layerId, name = name))
+                    }
+
                     "stroke" -> {
-                        parseStrokeStreaming(parser, page, state)?.let { stroke ->
+                        parseStrokeStreaming(parser, page, state, layerId)?.let { stroke ->
                             strokeBatch.add(stroke)
                             if (strokeBatch.size >= STROKE_SAVE_BATCH_SIZE) {
                                 // Hand off ownership of this batch to the caller, then start
@@ -411,7 +439,7 @@ class XoppFile @Inject constructor(
                         }
                     }
 
-                    "image" -> parseImageStreaming(parser, page)?.let { images.add(it) }
+                    "image" -> parseImageStreaming(parser, page, layerId)?.let { images.add(it) }
                 }
             }
             eventType = parser.next()
@@ -516,7 +544,8 @@ class XoppFile @Inject constructor(
     private fun parseStrokeStreaming(
         parser: XmlPullParser,
         page: Page,
-        state: ParseState
+        state: ParseState,
+        layer: Int,
     ): Stroke? {
         val toolName = parser.getAttributeValue(null, "tool") ?: ""
         val colorString = parser.getAttributeValue(null, "color") ?: "black"
@@ -594,7 +623,8 @@ class XoppFile @Inject constructor(
                 (color.green * 255).toInt(),
                 (color.blue * 255).toInt()
             ),
-            maxPressure = MAX_PRESSURE_NORMALIZED
+            maxPressure = MAX_PRESSURE_NORMALIZED,
+            layer = layer
         )
     }
 
@@ -602,7 +632,7 @@ class XoppFile @Inject constructor(
     // Image parsing
     // -----------------------------------------------------------------------------------------
 
-    private fun parseImageStreaming(parser: XmlPullParser, page: Page): Image? {
+    private fun parseImageStreaming(parser: XmlPullParser, page: Page, layer: Int): Image? {
         val left =
             parser.getAttributeValue(null, "left")?.toFloatOrNull()?.div(scaleFactor) ?: return null
         val top =
@@ -643,7 +673,8 @@ class XoppFile @Inject constructor(
             width = (right - left).toInt(),
             height = (bottom - top).toInt(),
             uri = Uri.fromFile(outputFile).toString(),
-            pageId = page.id
+            pageId = page.id,
+            layer = layer
         )
     }
 

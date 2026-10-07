@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import androidx.compose.ui.geometry.Offset
 import com.ethran.notable.data.datastore.GlobalAppSettings
+import com.ethran.notable.data.model.PageLayers
 import com.ethran.notable.editor.canvas.CanvasEventBus
 import com.ethran.notable.editor.state.ClipboardStore
 import com.ethran.notable.editor.state.History
@@ -280,7 +281,9 @@ class EditorControlTower(
                     .toString(),
                 createdAt = now,
                 // set the pageId to the current page
-                pageId = this.page.currentPageId
+                pageId = this.page.currentPageId,
+                // pasted content goes to the active layer
+                layer = this.page.activeLayerId
             )
         }
 
@@ -294,7 +297,9 @@ class EditorControlTower(
                 y = it.y + scrollPos.y.toInt(),
                 createdAt = now,
                 // set the pageId to the current page
-                pageId = this.page.currentPageId
+                pageId = this.page.currentPageId,
+                // pasted content goes to the active layer
+                layer = this.page.activeLayerId
             )
         }
 
@@ -308,6 +313,37 @@ class EditorControlTower(
         viewModel.selectionState.placementMode = PlacementMode.Paste
 
         showHint("Pasted content from clipboard")
+    }
+
+    /**
+     * Deletes a layer together with its strokes and images, as one undoable step: undo restores
+     * the layer and its content.
+     */
+    fun deleteLayer(layerId: Int) {
+        val layers = page.layers
+        if (layers.size <= 1) {
+            showHint("The last layer cannot be deleted")
+            return
+        }
+        if (layers.none { it.id == layerId }) return
+        applySelectionDisplace()
+        viewModel.selectionState.reset()
+
+        val strokes = PageLayers.inLayer(page.strokes, layers, layerId) { it.layer }
+        val images = PageLayers.inLayer(page.images, layers, layerId) { it.layer }
+        if (strokes.isNotEmpty()) page.removeStrokes(strokes.map { it.id })
+        if (images.isNotEmpty()) page.removeImages(images.map { it.id })
+        page.pageDataManager.updateLayers(PageLayers.remove(layers, layerId))
+
+        // Undo runs this block in order: the layer comes back first, then its content.
+        history.addOperationsToHistory(
+            buildList {
+                add(Operation.SetLayers(layers))
+                if (images.isNotEmpty()) add(Operation.AddImage(images))
+                if (strokes.isNotEmpty()) add(Operation.AddStroke(strokes))
+            }
+        )
+        redrawCanvas()
     }
 
     override fun showHint(text: String) = viewModel.showHint(text)

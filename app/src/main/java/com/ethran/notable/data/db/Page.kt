@@ -38,7 +38,9 @@ data class Page(
     @ColumnInfo(defaultValue = "blank") val background: String = "blank", // path or native subtype
     @ColumnInfo(defaultValue = "native") val backgroundType: String = "native", // image, imageRepeating, coverImage, native
     @ColumnInfo(index = true) val parentFolderId: String? = null,
-    val createdAt: Date = Date(), val updatedAt: Date = Date()
+    val createdAt: Date = Date(), val updatedAt: Date = Date(),
+    // JSON list of PageLayer, bottom first; null means the single default layer (PageLayers).
+    val layers: String? = null,
 )
 
 data class PageWithData(
@@ -72,6 +74,9 @@ interface PageDao {
     @Query("UPDATE page SET scroll=:scroll WHERE id =:pageId")
     suspend fun updateScroll(pageId: String, scroll: Int)
 
+    @Query("UPDATE page SET layers=:layers WHERE id =:pageId")
+    suspend fun updateLayers(pageId: String, layers: String?)
+
     // Bump only the edit timestamp, without a read-modify-write of the whole row. updatedAt is
     // stored as epoch millis (Date <-> Long converter), so a Long here matches the column format.
     @Query("UPDATE page SET updatedAt=:updatedAt WHERE id =:pageId")
@@ -102,6 +107,10 @@ class PageRepository @Inject constructor(
 
     suspend fun updateScroll(id: String, scroll: Int) {
         return db.updateScroll(id, scroll)
+    }
+
+    suspend fun updateLayers(id: String, layers: String?) {
+        return db.updateLayers(id, layers)
     }
 
     /** Advance a page's edit timestamp — the per-page dirty signal for incremental sync. */

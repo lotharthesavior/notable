@@ -249,8 +249,8 @@ fun handleSelect(
         selectionPath.close()
 
         // get the selected strokes and images
-        val selectedStrokes = selectStrokesFromPath(page.strokes, selectionPath)
-        val selectedImages = selectImagesFromPath(page.images, selectionPath)
+        val selectedStrokes = selectStrokesFromPath(page.editableStrokes, selectionPath)
+        val selectedImages = selectImagesFromPath(page.editableImages, selectionPath)
 
         if (selectedStrokes.isEmpty() && selectedImages.isEmpty()) return
 
@@ -280,8 +280,10 @@ fun selectRectangle(
 
     val imagesToSelect =
         page.pageDataManager.getImagesInRectangle(inPageCoordinates, page.currentPageId)
+            ?.let { page.editableImagesOf(it) }
     val strokesToSelect =
         page.pageDataManager.getStrokesInRectangle(inPageCoordinates, page.currentPageId)
+            ?.let { page.editableStrokesOf(it) }
     if (imagesToSelect != null && strokesToSelect != null) {
         if (imagesToSelect.isNotEmpty() || strokesToSelect.isNotEmpty()) {
             selectImagesAndStrokes(

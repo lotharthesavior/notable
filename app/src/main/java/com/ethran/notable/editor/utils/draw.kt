@@ -29,6 +29,7 @@ fun handleDraw(
             size = strokeSize,
             pen = pen,
             pageId = page.currentPageId,
+            layer = page.activeLayerId,
             top = boundingBox.top,
             bottom = boundingBox.bottom,
             left = boundingBox.left,

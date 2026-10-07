@@ -28,6 +28,7 @@ adb shell am broadcast -a com.ethran.notable.LIVE_DRAW_STOP -p com.ethran.notabl
 | `size` | float | 1.6 | Ballpoint pen width |
 | `color` | int | black | ARGB color for strokes without their own color |
 | `batch` | int | 1 | Strokes drawn per screen refresh |
+| `layer` | string | active layer | Layer for strokes without their own layer |
 
 The screen refresh dominates the cost, so larger batches draw much faster at the price of
 coarser animation. On a Nova Air C, 15,000 hatching strokes take about 30 s with
@@ -36,16 +37,19 @@ coarser animation. On a Nova Air C, 15,000 hatching strokes take about 30 s with
 ## Stroke file
 
 A JSON array of strokes in page coordinates (pixels at zoom 1, origin top left). Each stroke
-is either a point array or an object with its own color:
+is either a point array or an object with its own color and layer:
 
 ```json
 [
   [[100, 100], [400, 100]],
-  {"color": "#C0392B", "points": [[100, 200], [400, 300], [700, 200]]}
+  {"color": "#C0392B", "layer": "Shields", "points": [[100, 200], [400, 300], [700, 200]]}
 ]
 ```
 
 - Colors are `#RRGGBB` or `#AARRGGBB`.
+- Layers are matched by name, ignoring case. A layer the page does not have yet is added on
+  top, in the order the file first uses it, so a drawing can be split into layers that are
+  then hidden or reordered in the layers panel (see [layers](layers.md)).
 - Values after x and y in a point are ignored.
 - Long segments are filled with intermediate points, so two-point lines render as lines.
 - Strokes with fewer than two points are skipped.

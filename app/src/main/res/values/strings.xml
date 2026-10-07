@@ -91,6 +91,7 @@
     <string name="clean_all_strokes">Clean all strokes</string>
     <string name="cleared_all_strokes">Cleared all strokes</string>
     <string name="change_background">Change Background</string>
+    <string name="layers">Layers</string>
     <string name="bug_report">Bug Report</string>
     <string name="choose_pdf_background">Choose PDF background</string>
     <plurals name="pdf_has_pages">

@@ -25,6 +25,8 @@ import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.Image
 import com.ethran.notable.data.db.Stroke
 import com.ethran.notable.data.model.BackgroundType
+import com.ethran.notable.data.model.PageLayer
+import com.ethran.notable.data.model.PageLayers
 import com.ethran.notable.data.model.SimplePointF
 import com.ethran.notable.editor.canvas.CanvasEventBus
 import com.ethran.notable.editor.canvas.CanvasEventBus.drawingInProgress
@@ -113,6 +115,33 @@ class PageView(
     var images: List<Image>
         get() = pageDataManager.getImages(currentPageId)
         set(value) = pageDataManager.setImages(currentPageId, value)
+
+    // Layers of the current page, bottom first (see PageLayers).
+    val layers: List<PageLayer>
+        get() = pageDataManager.currentLayers()
+
+    /** The layer new strokes and images go to, and the only one the eraser and lasso act on. */
+    val activeLayerId: Int
+        get() = pageDataManager.activeLayerId()
+
+    /** Strokes of the active layer; empty while that layer is hidden. */
+    val editableStrokes: List<Stroke>
+        get() = editableStrokesOf(strokes)
+
+    /** Images of the active layer; empty while that layer is hidden. */
+    val editableImages: List<Image>
+        get() = editableImagesOf(images)
+
+    fun editableStrokesOf(candidates: List<Stroke>): List<Stroke> =
+        if (isActiveLayerVisible()) PageLayers.inLayer(candidates, layers, activeLayerId) { it.layer }
+        else emptyList()
+
+    fun editableImagesOf(candidates: List<Image>): List<Image> =
+        if (isActiveLayerVisible()) PageLayers.inLayer(candidates, layers, activeLayerId) { it.layer }
+        else emptyList()
+
+    private fun isActiveLayerVisible(): Boolean =
+        pageDataManager.layerState.value.activeLayer.visible
 
     // warning: The setter is delayed!
     private var currentBackground: CachedBackground
@@ -375,7 +404,8 @@ class PageView(
     }
 
     fun removeStrokes(strokeIds: List<String>) {
-        strokes = strokes.filter { s -> !strokeIds.contains(s.id) }
+        val ids = strokeIds.toHashSet()
+        strokes = strokes.filter { s -> s.id !in ids }
         removeStrokesFromPersistLayer(strokeIds)
         pageDataManager.recomputeHeight(currentPageId)
 
@@ -422,7 +452,8 @@ class PageView(
     }
 
     fun removeImages(imageIds: List<String>) {
-        images = images.filter { s -> !imageIds.contains(s.id) }
+        val ids = imageIds.toHashSet()
+        images = images.filter { s -> s.id !in ids }
         removeImagesFromPersistLayer(imageIds)
         pageDataManager.recomputeHeight(currentPageId)
 //        persistBitmapDebounced()

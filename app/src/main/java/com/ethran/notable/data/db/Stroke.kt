@@ -3,6 +3,7 @@ package com.ethran.notable.data.db
 import android.content.Context
 import androidx.compose.ui.geometry.Offset
 import androidx.room.*
+import com.ethran.notable.data.model.PageLayers
 import com.ethran.notable.editor.utils.Pen
 import kotlinx.serialization.SerialName
 import java.util.Date
@@ -77,7 +78,11 @@ data class Stroke(
     val pageId: String,
 
     val createdAt: Date = Date(),
-    val updatedAt: Date = Date()
+    val updatedAt: Date = Date(),
+
+    // Id of the page layer the stroke belongs to, see PageLayers.
+    @ColumnInfo(defaultValue = "0")
+    val layer: Int = PageLayers.DEFAULT_LAYER_ID,
 )
 
 // DAO

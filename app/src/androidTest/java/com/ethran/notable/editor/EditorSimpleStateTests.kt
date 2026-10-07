@@ -17,16 +17,19 @@ import com.ethran.notable.data.db.NotebookSyncStateRepository
 import com.ethran.notable.data.db.PageRepository
 import com.ethran.notable.data.db.PageSyncStateRepository
 import com.ethran.notable.data.db.StrokeRepository
+import com.ethran.notable.data.model.PageLayerState
 import com.ethran.notable.editor.state.History
 import com.ethran.notable.editor.state.Mode
 import com.ethran.notable.io.ExportEngine
 import com.ethran.notable.sync.SyncOrchestrator
 import com.ethran.notable.testing.TestDatabaseFactory
 import com.ethran.notable.ui.SnackDispatcher
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -87,7 +90,10 @@ class EditorSimpleStateTests {
         val editorSettingCacheManager = EditorSettingCacheManager(kvRepository)
 
         val exportEngine = mockk<ExportEngine>(relaxed = true)
-        val pageDataManager = mockk<PageDataManager>(relaxed = true)
+        val pageDataManager = mockk<PageDataManager>(relaxed = true).also {
+            // The view model collects the open page's layers; a relaxed mock flow never emits.
+            every { it.layerState } returns MutableStateFlow(PageLayerState())
+        }
         val syncOrchestrator = mockk<SyncOrchestrator>(relaxed = true)
         val snackDispatcher = mockk<SnackDispatcher>(relaxed = true)
         val historyFactory = mockk<History.Factory>(relaxed = true)
