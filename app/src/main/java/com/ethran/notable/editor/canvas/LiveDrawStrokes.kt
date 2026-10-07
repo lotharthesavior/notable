@@ -2,25 +2,54 @@ package com.ethran.notable.editor.canvas
 
 import com.ethran.notable.data.db.StrokePoint
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.ceil
 import kotlin.math.hypot
 
+/** One stroke of a LIVE_DRAW file. [color] is ARGB; null means the broadcast's color. */
+internal data class LiveDrawStroke(val points: List<StrokePoint>, val color: Int? = null)
+
 /**
- * Parses the LIVE_DRAW stroke file: a JSON array of strokes, each an array of [x, y] page
- * coordinates, e.g. [[[100, 100], [400, 100]], [[100, 200], [400, 300], [700, 200]]].
- * Extra values after x and y are ignored. Throws on malformed input.
+ * Parses the LIVE_DRAW stroke file: a JSON array of strokes in page coordinates. Each stroke
+ * is either a point array, [[x, y], [x, y], ...], or an object with its own color,
+ * {"color": "#RRGGBB" or "#AARRGGBB", "points": [[x, y], ...]}. Extra values after x and y
+ * are ignored. Throws on malformed input.
  */
-internal fun parseLiveDrawStrokes(json: String): List<List<StrokePoint>> =
+internal fun parseLiveDrawStrokes(json: String): List<LiveDrawStroke> =
     Json.parseToJsonElement(json).jsonArray.map { stroke ->
-        stroke.jsonArray.map { point ->
-            val xy = point.jsonArray
-            require(xy.size >= 2) { "point needs x and y: $point" }
-            StrokePoint(x = xy[0].jsonPrimitive.float, y = xy[1].jsonPrimitive.float)
+        when (stroke) {
+            is JsonArray -> LiveDrawStroke(parsePoints(stroke))
+            is JsonObject -> LiveDrawStroke(
+                points = parsePoints(
+                    requireNotNull(stroke["points"]) { "stroke object needs points: $stroke" }
+                ),
+                color = stroke["color"]?.jsonPrimitive?.content?.let(::parseLiveDrawColor)
+            )
+            else -> throw IllegalArgumentException("stroke must be an array or object: $stroke")
         }
     }
+
+private fun parsePoints(points: JsonElement): List<StrokePoint> =
+    points.jsonArray.map { point ->
+        val xy = point.jsonArray
+        require(xy.size >= 2) { "point needs x and y: $point" }
+        StrokePoint(x = xy[0].jsonPrimitive.float, y = xy[1].jsonPrimitive.float)
+    }
+
+/** Parses "#RRGGBB" (opaque) or "#AARRGGBB" into an ARGB int. */
+internal fun parseLiveDrawColor(value: String): Int {
+    val hex = value.removePrefix("#")
+    require((hex.length == 6 || hex.length == 8) && hex.all { it.isDigit() || it.lowercaseChar() in 'a'..'f' }) {
+        "color must be #RRGGBB or #AARRGGBB: $value"
+    }
+    val argb = hex.toLong(16)
+    return (if (hex.length == 6) argb or 0xFF000000 else argb).toInt()
+}
 
 /**
  * Inserts evenly spaced points so no segment is longer than [maxStep]. The pen renderers
@@ -42,3 +71,10 @@ internal fun densifyStroke(points: List<StrokePoint>, maxStep: Float = 4f): List
     out.add(points.last())
     return out
 }
+
+/**
+ * Splits strokes into groups that are drawn and refreshed together, dropping strokes with
+ * fewer than two points (nothing to draw). Order is preserved.
+ */
+internal fun liveDrawBatches(strokes: List<LiveDrawStroke>, batch: Int): List<List<LiveDrawStroke>> =
+    strokes.filter { it.points.size >= 2 }.chunked(batch.coerceAtLeast(1))

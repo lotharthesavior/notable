@@ -29,7 +29,8 @@ import java.io.File
  *   adb shell am broadcast -a com.ethran.notable.LIVE_DRAW \
  *       --es file /sdcard/Download/strokes.json --el delayMs 20 --ef size 1.6 --ei batch 1
  *
- * JSON: [[[x, y], [x, y], ...], ...] in page coordinates (see parseLiveDrawStrokes).
+ * JSON: [[[x, y], [x, y], ...], ...] in page coordinates; a stroke may instead be
+ * {"color": "#RRGGBB", "points": [...]} to override --ei color (see parseLiveDrawStrokes).
  * Only the shell user can send it: the receiver requires android.permission.DUMP, which
  * third-party apps cannot hold.
  * Send com.ethran.notable.LIVE_DRAW_STOP to cancel a running drawing.
@@ -64,7 +65,8 @@ class LiveDraw(
 
     private suspend fun draw(path: String, delayMs: Long, size: Float, color: Int, batch: Int) {
         val strokes = try {
-            parseLiveDrawStrokes(File(path).readText()).map { densifyStroke(it) }
+            parseLiveDrawStrokes(File(path).readText())
+                .map { it.copy(points = densifyStroke(it.points)) }
         } catch (e: Exception) {
             log.e("LiveDraw: cannot read $path: ${e.message}")
             return
@@ -72,8 +74,8 @@ class LiveDraw(
         log.i("LiveDraw: drawing ${strokes.size} strokes from $path")
         // Each batch is drawn together and refreshed once; the screen refresh dominates the
         // cost, so larger batches draw faster at the price of coarser animation.
-        for (group in strokes.filter { it.size >= 2 }.chunked(batch)) {
-            val batchStrokes = group.map { toStroke(it, size, color) }
+        for (group in liveDrawBatches(strokes, batch)) {
+            val batchStrokes = group.map { toStroke(it.points, size, it.color ?: color) }
             val dirty = strokeBounds(batchStrokes)
             // Same thread as pen strokes: strokeHistoryBatch is not thread-safe. One
             // addStrokes/drawArea per batch instead of per stroke (see handleDraw).
