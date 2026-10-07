@@ -91,6 +91,7 @@ class DrawCanvas(
     val inputHandler =
         OnyxInputHandler(this, page, viewModel, history, coroutineScope, strokeHistoryBatch)
     val refreshManager = CanvasRefreshManager(this, page, viewModel, inputHandler.touchHelper)
+    private val liveDraw = LiveDraw(this, page, coroutineScope, strokeHistoryBatch)
 
 
     private val observers = CanvasObserverRegistry(
@@ -115,6 +116,7 @@ class DrawCanvas(
                 // returns null). Paint now so the newly-created surface
                 // isn't left blank.
                 this@DrawCanvas.post { refreshManager.refreshUi(null) }
+                liveDraw.register()
             }
 
             override fun surfaceChanged(
@@ -138,6 +140,7 @@ class DrawCanvas(
                     } - ref $referencedSurfaceView"
                 )
                 holder.removeCallback(this)
+                liveDraw.unregister()
                 if (referencedSurfaceView == this@DrawCanvas.hashCode().toString()) {
                     inputHandler.touchHelper?.closeRawDrawing()
                 }
