@@ -87,7 +87,8 @@ class LiveDraw(
                     strokeHistoryBatch.addAll(batchStrokes.map { it.id })
                 }
             }
-            drawCanvas.refreshManager.refreshUi(dirty)
+            // dirty is in page coordinates; the surface refresh needs screen coordinates.
+            drawCanvas.refreshManager.refreshUi(page.toScreenCoordinates(dirty))
             CanvasEventBus.commitHistorySignal.emit(Unit)
             if (delayMs > 0) delay(delayMs)
         }
