@@ -130,6 +130,11 @@ private fun ToolbarMenuContent(
             onAction(ToolbarAction.ToggleMenu)
         }
 
+        MenuItem(stringResource(R.string.layers)) {
+            onAction(ToolbarAction.ToggleLayersPanel(true))
+            onAction(ToolbarAction.ToggleMenu)
+        }
+
         MenuItem(stringResource(R.string.bug_report)) {
             onAction(ToolbarAction.NavigateToBugReport)
             onAction(ToolbarAction.ToggleMenu)

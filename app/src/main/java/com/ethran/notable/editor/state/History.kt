@@ -5,6 +5,7 @@ import com.ethran.notable.data.db.Image
 import com.ethran.notable.data.db.Stroke
 import com.ethran.notable.data.events.AppEvent
 import com.ethran.notable.data.events.AppEventBus
+import com.ethran.notable.data.model.PageLayer
 import com.ethran.notable.editor.PageView
 import com.ethran.notable.editor.canvas.CanvasEventBus
 import com.ethran.notable.editor.utils.imageBoundsInt
@@ -27,6 +28,9 @@ sealed class Operation {
     // id (which raced to a UNIQUE(Image.id) crash).
     data class UpdateStroke(val strokes: List<Stroke>) : Operation()
     data class UpdateImage(val images: List<Image>) : Operation()
+
+    // Replaces the page's layer list (deleting a layer); its inverse carries the previous list.
+    data class SetLayers(val layers: List<PageLayer>) : Operation()
 }
 
 typealias OperationBlock = List<Operation>
@@ -137,6 +141,14 @@ class History @AssistedInject constructor(
                 pageModel.updateImages(operation.images)
                 return Operation.UpdateImage(images = previous) to
                         imageBoundsInt(operation.images + previous)
+            }
+
+            // Layers change no pixels by themselves; the content operations in the same block
+            // carry the affected area.
+            is Operation.SetLayers -> {
+                val previous = pageModel.layers
+                pageModel.pageDataManager.updateLayers(operation.layers)
+                return Operation.SetLayers(layers = previous) to Rect()
             }
         }
     }

@@ -165,9 +165,10 @@ class ImportEngine @Inject constructor(
                     persistentError = persistentError?.let { it + error } ?: error
                 }
             },
-            onPageFinalized = { _, images ->
+            onPageFinalized = { pageId, images, layers ->
                 try {
                     imageRepo.create(images)
+                    if (layers != null) pageRepo.updateLayers(pageId, layers)
                 } catch (e: Exception) {
                     val errMessage = "Failed to import page images: ${e.message}"
                     appEventBus.emit(AppEvent.LogMessage("importBook", errMessage))

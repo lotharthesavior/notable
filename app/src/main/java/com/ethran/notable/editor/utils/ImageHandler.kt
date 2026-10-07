@@ -66,7 +66,8 @@ class ImageHandler(
                 height = imageHeight,
                 width = imageWidth,
                 uri = imageUri.toString(),
-                pageId = page.currentPageId
+                pageId = page.currentPageId,
+                layer = page.activeLayerId
             )
             drawImage(
                 context, page.windowedCanvas, imageToSave, -page.scroll

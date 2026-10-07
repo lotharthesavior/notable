@@ -322,4 +322,38 @@ class NotebookSerializerPageTest {
         assertEquals(0.toUShort(), strokes[0].points[0].dt)
         assertEquals(16.toUShort(), strokes[0].points[1].dt)
     }
+
+    @Test
+    fun page_round_trip_preserves_layers() {
+        val layers = """[{"id":0,"name":"Base"},{"id":4,"name":"Ink","visible":false}]"""
+        val page = samplePage().copy(layers = layers)
+        val strokes = listOf(sampleStroke("s-1"), sampleStroke("s-2").copy(layer = 4))
+        val images = listOf(sampleImage("i-1").copy(layer = 4))
+
+        val json = NotebookSerializer.serializePage(page, strokes, images)
+        val result = NotebookSerializer.deserializePage(json)
+
+        assertTrue(result is AppResult.Success)
+        val (decodedPage, decodedStrokes, decodedImages) = (result as AppResult.Success).data
+        assertEquals(layers, decodedPage.layers)
+        assertEquals(listOf(0, 4), decodedStrokes.map { it.layer })
+        assertEquals(listOf(4), decodedImages.map { it.layer })
+    }
+
+    @Test
+    fun page_json_without_layer_fields_decodes_to_the_default_layer() {
+        val page = samplePage()
+        val json = NotebookSerializer.serializePage(page, listOf(sampleStroke("s-1")), listOf(sampleImage("i-1")))
+        // A page written before layers existed carries no layer fields at all.
+        val legacy = json.replace(",\"layer\":0", "")
+        assertTrue(!legacy.contains("layer"))
+
+        val result = NotebookSerializer.deserializePage(legacy)
+
+        assertTrue(result is AppResult.Success)
+        val (decodedPage, decodedStrokes, decodedImages) = (result as AppResult.Success).data
+        assertEquals(null, decodedPage.layers)
+        assertEquals(listOf(0), decodedStrokes.map { it.layer })
+        assertEquals(listOf(0), decodedImages.map { it.layer })
+    }
 }

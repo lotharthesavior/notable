@@ -1,11 +1,14 @@
 package com.ethran.notable.editor
 
 import com.ethran.notable.data.db.StrokePoint
+import com.ethran.notable.data.model.PageLayer
+import com.ethran.notable.data.model.PageLayers
 import com.ethran.notable.editor.canvas.LiveDrawStroke
 import com.ethran.notable.editor.canvas.densifyStroke
 import com.ethran.notable.editor.canvas.liveDrawBatches
 import com.ethran.notable.editor.canvas.parseLiveDrawColor
 import com.ethran.notable.editor.canvas.parseLiveDrawStrokes
+import com.ethran.notable.editor.canvas.resolveLiveDrawLayers
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -113,5 +116,41 @@ class LiveDrawStrokesTest {
         val strokes = List(3) { LiveDrawStroke(listOf(StrokePoint(0f, 0f), StrokePoint(1f, 1f))) }
 
         assertEquals(3, liveDrawBatches(strokes, batch = 0).size)
+    }
+
+    @Test
+    fun parsesLayerNames() {
+        val strokes = parseLiveDrawStrokes(
+            """[{"layer": " Sky ", "points": [[0, 0], [1, 1]]}, {"layer": "", "points": [[0, 0], [1, 1]]}, [[0, 0], [1, 1]]]"""
+        )
+
+        assertEquals(listOf("Sky", null, null), strokes.map { it.layer })
+    }
+
+    @Test
+    fun resolvesLayerNamesAndAddsMissingLayersOnTop() {
+        val line = listOf(StrokePoint(0f, 0f), StrokePoint(1f, 1f))
+        val existing = listOf(PageLayer(id = 0, name = "Layer 1"), PageLayer(id = 1, name = "Sky"))
+        val strokes = listOf(
+            LiveDrawStroke(line, layer = "horses"),
+            LiveDrawStroke(line, layer = "sky"),
+            LiveDrawStroke(line),
+            LiveDrawStroke(line, layer = "horses"),
+        )
+
+        val (layers, ids) = resolveLiveDrawLayers(existing, strokes, defaultLayer = "Ground", usedIds = listOf(5))
+
+        assertEquals(listOf("Layer 1", "Sky", "Ground", "horses"), layers.map { it.name })
+        assertEquals(mapOf("Ground" to 6, "horses" to 7, "sky" to 1), ids)
+    }
+
+    @Test
+    fun withoutLayerNamesTheLayersStayAsTheyAre() {
+        val strokes = listOf(LiveDrawStroke(listOf(StrokePoint(0f, 0f), StrokePoint(1f, 1f))))
+
+        val (layers, ids) = resolveLiveDrawLayers(PageLayers.DEFAULT, strokes, defaultLayer = null)
+
+        assertEquals(PageLayers.DEFAULT, layers)
+        assertTrue(ids.isEmpty())
     }
 }

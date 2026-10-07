@@ -31,7 +31,9 @@ import java.io.File
  *       --es file /sdcard/Download/strokes.json --el delayMs 20 --ef size 1.6 --ei batch 1
  *
  * JSON: [[[x, y], [x, y], ...], ...] in page coordinates; a stroke may instead be
- * {"color": "#RRGGBB", "points": [...]} to override --ei color (see parseLiveDrawStrokes).
+ * {"color": "#RRGGBB", "layer": "name", "points": [...]} to override --ei color and
+ * --es layer (see parseLiveDrawStrokes). Strokes go to the named layer, created on top if the
+ * page has none by that name, or else to the active layer.
  * Only the shell user can send it: the receiver requires android.permission.DUMP, which
  * third-party apps cannot hold.
  * Send com.ethran.notable.LIVE_DRAW_STOP to cancel a running drawing.
@@ -55,16 +57,19 @@ class LiveDraw(
                     val size = intent.getFloatExtra("size", 1.6f)
                     val color = intent.getIntExtra("color", 0xFF000000.toInt())
                     val batch = intent.getIntExtra("batch", 1).coerceAtLeast(1)
+                    val layer = intent.getStringExtra("layer")
                     job?.cancel()
                     job = coroutineScope.launch(Dispatchers.Default) {
-                        draw(path, delayMs, size, color, batch)
+                        draw(path, delayMs, size, color, batch, layer)
                     }
                 }
             }
         }
     }
 
-    private suspend fun draw(path: String, delayMs: Long, size: Float, color: Int, batch: Int) {
+    private suspend fun draw(
+        path: String, delayMs: Long, size: Float, color: Int, batch: Int, layer: String?
+    ) {
         val strokes = try {
             parseLiveDrawStrokes(File(path).readText())
                 .map { it.copy(points = densifyStroke(it.points)) }
@@ -72,11 +77,15 @@ class LiveDraw(
             log.e("LiveDraw: cannot read $path: ${e.message}")
             return
         }
+        val layerIds = withContext(Dispatchers.Main) { prepareLayers(strokes, layer) }
+        val defaultLayerId = layer?.trim()?.let { layerIds[it] } ?: page.activeLayerId
         log.i("LiveDraw: drawing ${strokes.size} strokes from $path")
         // Each batch is drawn together and refreshed once; the screen refresh dominates the
         // cost, so larger batches draw faster at the price of coarser animation.
         for (group in liveDrawBatches(strokes, batch)) {
-            val batchStrokes = group.map { toStroke(it.points, size, it.color ?: color) }
+            val batchStrokes = group.map {
+                toStroke(it.points, size, it.color ?: color, it.layer?.let(layerIds::get) ?: defaultLayerId)
+            }
             val dirty = strokeBounds(batchStrokes)
             // Same thread as pen strokes: strokeHistoryBatch is not thread-safe. One
             // addStrokes/drawArea per batch instead of per stroke (see handleDraw).
@@ -95,7 +104,16 @@ class LiveDraw(
         log.i("LiveDraw: done")
     }
 
-    private fun toStroke(points: List<StrokePoint>, size: Float, color: Int): Stroke {
+    /** Creates the named layers the page lacks; returns the layer id for each name. */
+    private fun prepareLayers(strokes: List<LiveDrawStroke>, layer: String?): Map<String, Int> {
+        val current = page.layers
+        val used = page.strokes.mapTo(HashSet()) { it.layer } + page.images.map { it.layer }
+        val (layers, ids) = resolveLiveDrawLayers(current, strokes, layer, used)
+        if (layers != current) page.pageDataManager.updateLayers(layers)
+        return ids
+    }
+
+    private fun toStroke(points: List<StrokePoint>, size: Float, color: Int, layer: Int): Stroke {
         val box = calculateBoundingBox(points) { Pair(it.x, it.y) }
         box.inset(-size, -size)
         return Stroke(
@@ -108,7 +126,8 @@ class LiveDraw(
             right = box.right,
             points = points,
             color = color,
-            maxPressure = MAX_PRESSURE_NORMALIZED
+            maxPressure = MAX_PRESSURE_NORMALIZED,
+            layer = layer
         )
     }
 

@@ -14,6 +14,9 @@ import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.getPageIndex
 import com.ethran.notable.data.db.getParentFolder
 import com.ethran.notable.data.model.BackgroundType
+import com.ethran.notable.data.model.PageLayer
+import com.ethran.notable.data.model.PageLayerState
+import com.ethran.notable.data.model.PageLayers
 import com.ethran.notable.di.ApplicationScope
 import com.ethran.notable.editor.EditorViewModel.Companion.DEFAULT_PEN_SETTINGS
 import com.ethran.notable.editor.canvas.CanvasEventBus
@@ -79,7 +82,11 @@ data class ToolbarUiState(
     val isMenuOpen: Boolean = false,
     val isStrokeSelectionOpen: Boolean = false,
     val isBackgroundSelectorModalOpen: Boolean = false,
+    val isLayersPanelOpen: Boolean = false,
     val showResetView: Boolean = false,
+
+    // Layers of the open page (mirrors PageDataManager.layerState)
+    val layerState: PageLayerState = PageLayerState(),
 
     // Canvas / drawing
     val mode: Mode = Mode.Draw,
@@ -105,7 +112,7 @@ data class ToolbarUiState(
 
     val isDrawingAllowed: Boolean
         get() = !isSelectionActive &&
-                !(isMenuOpen || isStrokeSelectionOpen || isBackgroundSelectorModalOpen)
+                !(isMenuOpen || isStrokeSelectionOpen || isBackgroundSelectorModalOpen || isLayersPanelOpen)
                 && !isQuickNavOpen
 }
 
@@ -123,6 +130,13 @@ sealed class ToolbarAction {
     object ToggleMenu : ToolbarAction()
     data class ToggleEraserManu(val isOpen: Boolean) : ToolbarAction()
     data class ToggleBackgroundSelector(val isOpen: Boolean) : ToolbarAction()
+    data class ToggleLayersPanel(val isOpen: Boolean) : ToolbarAction()
+    object AddLayer : ToolbarAction()
+    data class SelectLayer(val layerId: Int) : ToolbarAction()
+    data class SetLayerVisible(val layerId: Int, val visible: Boolean) : ToolbarAction()
+    data class MoveLayer(val layerId: Int, val delta: Int) : ToolbarAction()
+    data class RenameLayer(val layerId: Int, val name: String) : ToolbarAction()
+    data class DeleteLayer(val layerId: Int) : ToolbarAction()
     data class ToggleScribbleToErase(val enabled: Boolean) : ToolbarAction()
 
     object Undo : ToolbarAction()
@@ -157,6 +171,8 @@ sealed class CanvasCommand {
     object ResetView : CanvasCommand()
     object ClearAllStrokes : CanvasCommand()
     object RefreshCanvas : CanvasCommand()
+    object RedrawCanvas : CanvasCommand()
+    data class DeleteLayer(val layerId: Int) : CanvasCommand()
     data class CopyImageToCanvas(val uri: Uri) : CanvasCommand()
 }
 
@@ -193,6 +209,11 @@ class EditorViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             ClipboardStore.content.collect { setHasClipboard(it != null) }
+        }
+        viewModelScope.launch {
+            pageDataManager.layerState.collect { layers ->
+                _toolbarState.update { it.copy(layerState = layers) }
+            }
         }
         // The pen presets in AppSettings are the source of truth for per-pen color/size;
         // mirror them into ToolbarUiState.penSettings so the (non-Compose) drawing
@@ -323,6 +344,36 @@ class EditorViewModel @Inject constructor(
 //                updateDrawingState() // on focus change is doing this
             }
 
+            is ToolbarAction.ToggleLayersPanel -> {
+                _toolbarState.update { it.copy(isLayersPanelOpen = action.isOpen) }
+                updateDrawingState()
+            }
+
+            ToolbarAction.AddLayer -> {
+                val state = pageDataManager.layerState.value
+                val used = pageDataManager.getStrokes(state.pageId).mapTo(HashSet()) { it.layer } +
+                        pageDataManager.getImages(state.pageId).map { it.layer }
+                val layers = PageLayers.add(state.layers, used)
+                // The new layer becomes the active one; nothing to redraw, it is empty.
+                pageDataManager.updateLayers(layers, activeLayerId = layers.last().id)
+            }
+
+            is ToolbarAction.SelectLayer -> pageDataManager.setActiveLayer(action.layerId)
+            is ToolbarAction.SetLayerVisible -> updateLayersAndRedraw {
+                PageLayers.setVisible(it, action.layerId, action.visible)
+            }
+
+            is ToolbarAction.MoveLayer -> updateLayersAndRedraw {
+                PageLayers.move(it, action.layerId, action.delta)
+            }
+
+            is ToolbarAction.RenameLayer -> pageDataManager.updateLayers(
+                PageLayers.rename(pageDataManager.currentLayers(), action.layerId, action.name)
+            )
+
+            // Deleting removes the layer's content too, which the canvas owns (with undo history).
+            is ToolbarAction.DeleteLayer -> sendCanvasCommand(CanvasCommand.DeleteLayer(action.layerId))
+
             is ToolbarAction.ToggleScribbleToErase -> updateScribbleToErase(action.enabled)
             is ToolbarAction.ImagePicked -> handleImagePicked(action.uri)
             is ToolbarAction.ExportPage -> handleExport(
@@ -406,13 +457,22 @@ class EditorViewModel @Inject constructor(
         }
     }
 
+    private fun updateLayersAndRedraw(change: (List<PageLayer>) -> List<PageLayer>) {
+        val layers = pageDataManager.currentLayers()
+        val updated = change(layers)
+        if (updated == layers) return
+        pageDataManager.updateLayers(updated)
+        sendCanvasCommand(CanvasCommand.RedrawCanvas)
+    }
+
     private fun handleCloseAllMenus() {
         log.d("Closing all menus in EditorViewModel")
         _toolbarState.update {
             it.copy(
                 isMenuOpen = false,
                 isStrokeSelectionOpen = false,
-                isBackgroundSelectorModalOpen = false
+                isBackgroundSelectorModalOpen = false,
+                isLayersPanelOpen = false
             )
         }
         updateDrawingState()

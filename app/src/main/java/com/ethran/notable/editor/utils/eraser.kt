@@ -129,7 +129,7 @@ fun handleScribbleToErase(
     val path = pointsToPath(touchPoints.map { SimplePointF(it.x, it.y) })
     val outPath = Path()
     Paint().apply { this.strokeWidth = strokeSizeForDetection }.getFillPath(path, outPath)
-    val candidateStrokes = selectStrokesFromPath(page.strokes, outPath)
+    val candidateStrokes = selectStrokesFromPath(page.editableStrokes, outPath)
 
 
     // Filter intersecting strokes based on intersection ratio
@@ -152,6 +152,7 @@ fun handleScribbleToErase(
             size = strokeSize,
             pen = pen,
             pageId = page.currentPageId,
+            layer = page.activeLayerId,
             top = scribbleBox.top,
             bottom = scribbleBox.bottom,
             left = scribbleBox.left,
@@ -200,7 +201,7 @@ fun handleErase(
         paint.getFillPath(path, outPath)
     }
 
-    val deletedStrokes = selectStrokesFromPath(page.strokes, outPath)
+    val deletedStrokes = selectStrokesFromPath(page.editableStrokes, outPath)
 
     val deletedStrokeIds = deletedStrokes.map { it.id }
 
@@ -219,7 +220,7 @@ fun handleErase(
 fun cleanAllStrokes(
     page: PageView, history: History
 ): Rect? {
-    val deletedStrokes = page.strokes
+    val deletedStrokes = page.editableStrokes
     val deletedStrokeIds = deletedStrokes.map { it.id }
     if (deletedStrokes.isEmpty()) return null
 
