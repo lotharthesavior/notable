@@ -8,6 +8,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.ethran.notable.data.events.AppEventBus
 import com.ethran.notable.data.events.DefaultAppEventBus
 import com.ethran.notable.data.db.*
+import com.ethran.notable.data.model.PageLayer
+import com.ethran.notable.data.model.PageLayers
 import com.ethran.notable.testing.TestDatabaseFactory
 import com.ethran.notable.utils.AppResult
 import kotlinx.coroutines.runBlocking
@@ -146,5 +148,38 @@ class XoppImportTest {
             val page = db.pageDao().getById(pageId)
             assertEquals("Page $pageId does not point to correct notebook", book.id, page?.notebookId)
         }
+    }
+
+    @Test(timeout = 120000)
+    fun importXopp_turnsEachLayerIntoAPageLayer() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val stroke = """<stroke tool="pen" color="black" width="1">10 10 20 20 30 30</stroke>"""
+        val xml = """<?xml version="1.0" standalone="no"?>
+            <xournal creator="test" fileversion="4">
+            <page width="595" height="842"><background type="solid" color="#ffffffff" style="plain"/>
+            <layer name="Sketch">$stroke</layer><layer>$stroke$stroke</layer>
+            </page>
+            <page width="595" height="842"><background type="solid" color="#ffffffff" style="plain"/>
+            <layer>$stroke</layer>
+            </page>
+            </xournal>"""
+        val testFile = File(context.cacheDir, "Layers.xopp")
+        java.util.zip.GZIPOutputStream(testFile.outputStream()).use { it.write(xml.toByteArray()) }
+
+        val result = importEngine.import(Uri.fromFile(testFile), ImportOptions(bookTitle = "Layers.xopp"))
+        assertTrue("Import failed: $result", result is AppResult.Success)
+        val (layered, plain) = (result as AppResult.Success).data
+
+        val layeredPage = db.pageDao().getPageWithDataById(layered)!!
+        assertEquals(
+            listOf(PageLayer(id = 0, name = "Sketch"), PageLayer(id = 1, name = "Layer 2")),
+            PageLayers.decode(layeredPage.page.layers)
+        )
+        assertEquals(listOf(0, 1, 1), layeredPage.strokes.map { it.layer }.sorted())
+
+        // A single unnamed layer stays the implicit default layer.
+        val plainPage = db.pageDao().getPageWithDataById(plain)!!
+        assertEquals(null, plainPage.page.layers)
+        assertEquals(listOf(0), plainPage.strokes.map { it.layer })
     }
 }
