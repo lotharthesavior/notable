@@ -23,8 +23,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Draws strokes from a JSON file onto the open page, one stroke at a time, through the same
- * path as a finished pen stroke, so they appear live and are saved with undo history.
+ * Draws strokes from a JSON file onto the open page in batches of `batch` strokes, through
+ * the same addStrokes/refresh path as finished pen strokes, so they appear live and are saved
+ * with undo history. See docs/live-draw.md.
  *
  *   adb shell am broadcast -a com.ethran.notable.LIVE_DRAW \
  *       --es file /sdcard/Download/strokes.json --el delayMs 20 --ef size 1.6 --ei batch 1
