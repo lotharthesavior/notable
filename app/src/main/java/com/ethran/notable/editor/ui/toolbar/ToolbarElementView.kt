@@ -52,6 +52,10 @@ import com.ethran.notable.editor.utils.Eraser
 import com.ethran.notable.ui.components.OnOffSwitch
 import com.ethran.notable.ui.components.ScaledPopup
 import com.ethran.notable.ui.noRippleClickable
+import compose.icons.FeatherIcons
+import compose.icons.feathericons.ZoomIn
+import compose.icons.feathericons.ZoomOut
+import kotlin.math.roundToInt
 
 /**
  * The single generic renderer for toolbar elements: draws the button (via [ToolbarButton]),
@@ -125,6 +129,8 @@ fun ToolbarElementView(
                         textAlign = TextAlign.Center
                     )
                 }
+
+            CustomKind.ZOOM -> ZoomControl(uiState, onAction)
 
             CustomKind.MENU ->
                 Column {
@@ -215,6 +221,34 @@ private fun ModeElementView(
                 onAction = onAction,
             )
         }
+    }
+}
+
+/** Zoom out, the current level (tap to reset to 100%), zoom in. */
+@Composable
+private fun ZoomControl(
+    uiState: ToolbarUiState,
+    onAction: (ToolbarAction) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        ToolbarButton(
+            onSelect = { onAction(ToolbarAction.StepZoom(zoomIn = false)) },
+            vectorIcon = FeatherIcons.ZoomOut,
+            contentDescription = "zoom out",
+        )
+        Text(
+            text = "${(uiState.zoomLevel * 100).roundToInt()}%",
+            fontWeight = FontWeight.Light,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .width(56.dp)
+                .noRippleClickable { onAction(ToolbarAction.ResetView) },
+        )
+        ToolbarButton(
+            onSelect = { onAction(ToolbarAction.StepZoom(zoomIn = true)) },
+            vectorIcon = FeatherIcons.ZoomIn,
+            contentDescription = "zoom in",
+        )
     }
 }
 

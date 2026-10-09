@@ -13,6 +13,7 @@ import compose.icons.feathericons.Clipboard
 import compose.icons.feathericons.EyeOff
 import compose.icons.feathericons.Layers
 import compose.icons.feathericons.RefreshCcw
+import compose.icons.feathericons.ZoomIn
 
 /**
  * The registry: every placeable **static** toolbar element, keyed by id. Pen buttons are
@@ -69,6 +70,14 @@ object ToolbarElements {
             contentDescription = "reset zoom and scroll",
             visibleWhen = { state, _ -> state.showResetView },
             action = ToolbarAction.ResetView,
+        ),
+
+        CustomElement(
+            id = ToolbarElementId.ZOOM,
+            icon = IconRef.Vector(FeatherIcons.ZoomIn),
+            contentDescription = "zoom",
+            visibleWhen = { state, _ -> state.isZoomAllowed },
+            kind = CustomKind.ZOOM,
         ),
 
         ActionElement(

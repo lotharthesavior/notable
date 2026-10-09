@@ -17,6 +17,7 @@ import com.ethran.notable.editor.utils.offsetStroke
 import com.ethran.notable.editor.utils.refreshScreen
 import com.ethran.notable.editor.utils.selectImagesAndStrokes
 import com.ethran.notable.gestures.GestureActions
+import com.ethran.notable.gestures.nextDiscreteZoom
 import io.shipbook.shipbooksdk.ShipBook
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -181,6 +182,21 @@ class EditorControlTower(
                     page.simpleUpdateZoom(delta)
                 else
                     page.updateZoom(delta, center)
+            }
+            CanvasEventBus.refreshUiImmediately.emit(Unit)
+        }
+    }
+
+    /** One step through the discrete zoom levels, from the toolbar zoom control. */
+    fun stepZoom(zoomIn: Boolean) {
+        if (!page.isTransformationAllowed) return
+        // Same guard as pinch-zoom: a live selection overlay would desync from the strokes.
+        if (viewModel.selectionState.isNonEmpty() || viewModel.selectionState.firstPageCut != null)
+            return
+        scope.launch {
+            scrollInProgress.withLock {
+                val newZoom = nextDiscreteZoom(current = page.zoomLevel.value, zoomIn = zoomIn)
+                if (newZoom != page.zoomLevel.value) page.applyZoomAndRedraw(newZoom)
             }
             CanvasEventBus.refreshUiImmediately.emit(Unit)
         }

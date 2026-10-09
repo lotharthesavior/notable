@@ -26,6 +26,11 @@ class ToolbarLayoutTest {
     }
 
     @Test
+    fun `default layout pins the zoom control`() {
+        assertTrue(ToolbarElementId.ZOOM.name in ToolbarLayout.DEFAULT.pinned)
+    }
+
+    @Test
     fun `validator drops unknown names`() {
         val layout = ToolbarLayout(
             scrollable = listOf("PEN:ball", "FROM_THE_FUTURE", "ERASER"),

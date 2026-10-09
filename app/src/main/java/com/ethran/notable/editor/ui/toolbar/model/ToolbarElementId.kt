@@ -19,6 +19,9 @@ enum class ToolbarElementId {
     SHAPE, ERASER, SELECT, IMAGE, PASTE, RESET_VIEW,
     UNDO, REDO, PAGE_NAV, HOME, MENU, LAYERS,
 
+    /** Zoom out / current level / zoom in, stepping through the discrete zoom levels. */
+    ZOOM,
+
     /** Placeable pseudo-element: a vertical divider. May appear multiple times in a layout. */
     DIVIDER;
     // future: TEXT

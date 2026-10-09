@@ -66,7 +66,8 @@ data class ToolbarLayout(
                 "DIVIDER", "SELECT", "DIVIDER", "IMAGE", "DIVIDER", "PASTE", "RESET_VIEW",
             ),
             pinned = listOf(
-                "DIVIDER", "LAYERS", "UNDO", "REDO", "DIVIDER", "PAGE_NAV", "HOME", "DIVIDER", "MENU",
+                "DIVIDER", "ZOOM", "DIVIDER", "LAYERS", "UNDO", "REDO", "DIVIDER", "PAGE_NAV", "HOME",
+                "DIVIDER", "MENU",
             ),
         )
     }

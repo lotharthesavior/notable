@@ -5,6 +5,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,6 +39,10 @@ import com.ethran.notable.ui.dialogs.BackgroundSelector
  * [ToolbarElementView]. The layout is data; adding a tool means adding a registry
  * entry, not editing this file.
  */
+
+/** Gap between toolbar buttons, so neighbouring round buttons don't touch. */
+private val TOOLBAR_ITEM_SPACING = 6.dp
+
 @Composable
 fun ToolbarContent(
     uiState: ToolbarUiState,
@@ -129,12 +134,17 @@ fun ToolbarContent(
                 Modifier
                     .weight(1f)
                     .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = TOOLBAR_ITEM_SPACING),
+                horizontalArrangement = Arrangement.spacedBy(TOOLBAR_ITEM_SPACING),
             ) {
                 renderZone(layout.scrollable)
             }
 
             // Right zone: pinned.
-            Row {
+            Row(
+                Modifier.padding(end = TOOLBAR_ITEM_SPACING),
+                horizontalArrangement = Arrangement.spacedBy(TOOLBAR_ITEM_SPACING),
+            ) {
                 renderZone(layout.pinned)
             }
         }

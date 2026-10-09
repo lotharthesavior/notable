@@ -276,6 +276,7 @@
     <string name="toolbar_element_image">Wstaw obraz</string>
     <string name="toolbar_element_paste">Wklej</string>
     <string name="toolbar_element_reset_view">Resetuj widok</string>
+    <string name="toolbar_element_zoom">Przybliżenie</string>
     <string name="toolbar_element_undo">Cofnij</string>
     <string name="toolbar_element_redo">Ponów</string>
     <string name="toolbar_element_page_nav">Numer strony</string>

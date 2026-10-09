@@ -981,6 +981,7 @@ private fun elementNameRes(id: ToolbarElementId): Int = when (id) {
     ToolbarElementId.HOME -> R.string.toolbar_element_home
     ToolbarElementId.MENU -> R.string.toolbar_element_menu
     ToolbarElementId.LAYERS -> R.string.layers
+    ToolbarElementId.ZOOM -> R.string.toolbar_element_zoom
     ToolbarElementId.DIVIDER -> R.string.toolbar_element_divider
     // Not placeable / not listed, but keep the when exhaustive:
     ToolbarElementId.TOGGLE, ToolbarElementId.PEN -> R.string.toolbar_element_menu

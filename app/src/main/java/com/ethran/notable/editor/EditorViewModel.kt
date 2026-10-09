@@ -84,6 +84,10 @@ data class ToolbarUiState(
     val isBackgroundSelectorModalOpen: Boolean = false,
     val isLayersPanelOpen: Boolean = false,
     val showResetView: Boolean = false,
+    /** Current zoom of the open page, shown by the toolbar zoom control. */
+    val zoomLevel: Float = 1f,
+    /** False on pages that can't be zoomed (cover images); hides the zoom control. */
+    val isZoomAllowed: Boolean = true,
 
     // Layers of the open page (mirrors PageDataManager.layerState)
     val layerState: PageLayerState = PageLayerState(),
@@ -143,6 +147,7 @@ sealed class ToolbarAction {
     object Redo : ToolbarAction()
     object Paste : ToolbarAction()
     object ResetView : ToolbarAction()
+    data class StepZoom(val zoomIn: Boolean) : ToolbarAction()
     object ClearAllStrokes : ToolbarAction()
 
     data class ImagePicked(val uri: Uri) : ToolbarAction()
@@ -169,6 +174,7 @@ sealed class CanvasCommand {
     object Redo : CanvasCommand()
     object Paste : CanvasCommand()
     object ResetView : CanvasCommand()
+    data class StepZoom(val zoomIn: Boolean) : CanvasCommand()
     object ClearAllStrokes : CanvasCommand()
     object RefreshCanvas : CanvasCommand()
     object RedrawCanvas : CanvasCommand()
@@ -391,6 +397,7 @@ class EditorViewModel @Inject constructor(
             ToolbarAction.Redo -> sendCanvasCommand(CanvasCommand.Redo)
             ToolbarAction.Paste -> sendCanvasCommand(CanvasCommand.Paste)
             ToolbarAction.ResetView -> sendCanvasCommand(CanvasCommand.ResetView)
+            is ToolbarAction.StepZoom -> sendCanvasCommand(CanvasCommand.StepZoom(action.zoomIn))
             ToolbarAction.ClearAllStrokes -> sendCanvasCommand(CanvasCommand.ClearAllStrokes)
 
             ToolbarAction.NavigateToLibrary -> handleNavigateToLibrary()
@@ -808,6 +815,10 @@ class EditorViewModel @Inject constructor(
 
     fun setHasClipboard(hasClipboard: Boolean) {
         _toolbarState.update { it.copy(hasClipboard = hasClipboard) }
+    }
+
+    fun setZoomState(zoomLevel: Float, isZoomAllowed: Boolean) {
+        _toolbarState.update { it.copy(zoomLevel = zoomLevel, isZoomAllowed = isZoomAllowed) }
     }
 
     fun setShowResetView(showResetView: Boolean) {
