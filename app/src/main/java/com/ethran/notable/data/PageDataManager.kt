@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Offset
 import com.ethran.notable.BuildConfig
 import com.ethran.notable.SCREEN_HEIGHT
 import com.ethran.notable.SCREEN_WIDTH
+import com.ethran.notable.data.datastore.GlobalAppSettings
 import com.ethran.notable.data.db.Image
 import com.ethran.notable.data.db.Page
 import com.ethran.notable.data.db.Stroke
@@ -961,6 +962,15 @@ class PageDataManager @Inject constructor(
             else -> true
         }
     }
+
+    /**
+     * Whether the current page may scroll above and left of its origin. Only pages with a native
+     * background qualify: PDF and image backgrounds are anchored at the origin.
+     */
+    fun isInfiniteCanvasForCurrentPage(): Boolean =
+        GlobalAppSettings.current.infiniteCanvas &&
+                isTransformationAllowedForCurrentPage() &&
+                getBackgroundType() == BackgroundType.Native
 
     fun getCurrentPageNumber(): Int {
         if (currentPageNumber == -1)

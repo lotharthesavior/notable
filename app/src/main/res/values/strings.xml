@@ -18,6 +18,7 @@
     <string name="enable_scribble_to_erase">Enable scribble-to-erase (scribble out your mistakes to erase them)</string>
     <string name="enable_smooth_scrolling">Enable smooth scrolling</string>
     <string name="continuous_zoom">Continuous Zoom</string>
+    <string name="infinite_canvas">Infinite canvas (scroll in every direction on pages without a PDF or image background)</string>
     <string name="continuous_stroke_slider">Continuous Stroke Slider</string>
     <string name="rename_on_create">Open properties on new notebook</string>
     <string name="paginate_pdf">Paginate PDF</string>

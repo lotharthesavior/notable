@@ -17,6 +17,7 @@ import com.ethran.notable.data.model.BackgroundType
 import com.ethran.notable.editor.utils.scaleRect
 import com.onyx.android.sdk.extension.copy
 import io.shipbook.shipbooksdk.ShipBook
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
@@ -59,7 +60,7 @@ fun drawLinedBg(canvas: Canvas, scroll: Offset, scale: Float) {
 
 
     val offset = IntOffset(lineHeight, lineHeight) - IntOffset(
-        scroll.x.toInt() % lineHeight, scroll.y.toInt() % lineHeight
+        scroll.x.toInt().mod(lineHeight), scroll.y.toInt().mod(lineHeight)
     )
 
     for (y in 0..height step lineHeight) {
@@ -82,7 +83,7 @@ fun drawDottedBg(canvas: Canvas, scroll: Offset, scale: Float) {
 
     // dots
     val offset = IntOffset(lineHeight, lineHeight) - IntOffset(
-        scroll.x.toInt() % lineHeight, scroll.y.toInt() % lineHeight
+        scroll.x.toInt().mod(lineHeight), scroll.y.toInt().mod(lineHeight)
     )
 
     for (y in 0..height step lineHeight) {
@@ -109,7 +110,7 @@ fun drawSquaredBg(canvas: Canvas, scroll: Offset, scale: Float) {
     // paint
 
     val offset = IntOffset(lineHeight, lineHeight) - IntOffset(
-        scroll.x.toInt() % lineHeight, scroll.y.toInt() % lineHeight
+        scroll.x.toInt().mod(lineHeight), scroll.y.toInt().mod(lineHeight)
     )
 
     for (y in 0..height step lineHeight) {
@@ -336,7 +337,7 @@ fun drawBg(
 // TODO: make sure it respects horizontal scroll
 fun drawMargin(canvas: Canvas, scroll: Offset, scale: Float) {
     // in landscape orientation add margin to indicate what will be visible in vertical orientation.
-    if (SCREEN_WIDTH > SCREEN_HEIGHT || scale < 1.0f || scroll.x > 1) {
+    if (SCREEN_WIDTH > SCREEN_HEIGHT || scale < 1.0f || abs(scroll.x) > 1) {
         val margin = min(SCREEN_HEIGHT, SCREEN_WIDTH) - scroll.x
         // Draw vertical line with x= SCREEN_HEIGHT
         canvas.drawLine(

@@ -395,6 +395,7 @@ class ExportEngine @Inject constructor(
         ensureNotMainThread("ExportPdf")
         val data = pageContentRenderer.loadPageContent(pageId) ?: return
         val (_, contentHeightPx) = pageContentRenderer.computeContentDimensions(data)
+        val origin = pageContentRenderer.computeContentOrigin(data)
 
         val scaleFactor = A4_WIDTH.toFloat() / SCREEN_WIDTH.toFloat()
         val scaledHeight = (contentHeightPx * scaleFactor).toInt()
@@ -405,16 +406,16 @@ class ExportEngine @Inject constructor(
             // One A4 page shows A4_HEIGHT/scaleFactor content px; stepping by A4_HEIGHT (output px)
             // instead advanced only ~scaleFactor of a page each time, so consecutive pages overlapped.
             val pageContentHeightPx = A4_HEIGHT / scaleFactor
-            var currentTop = 0f
+            var currentTop = origin.y
             var logicalPageNumber = pageNumber
-            while (currentTop < contentHeightPx) {
+            while (currentTop < origin.y + contentHeightPx) {
                 val pageInfo =
                     PdfDocument.PageInfo.Builder(A4_WIDTH, A4_HEIGHT, logicalPageNumber).create()
                 val page = doc.startPage(pageInfo)
                 pageContentRenderer.drawPage(
                     canvas = page.canvas,
                     data = data,
-                    scroll = Offset(0f, currentTop),
+                    scroll = Offset(origin.x, currentTop),
                     scaleFactor = scaleFactor,
                 )
                 doc.finishPage(page)
@@ -427,7 +428,7 @@ class ExportEngine @Inject constructor(
             pageContentRenderer.drawPage(
                 canvas = page.canvas,
                 data = data,
-                scroll = Offset.Zero,
+                scroll = origin,
                 scaleFactor = scaleFactor,
             )
             doc.finishPage(page)

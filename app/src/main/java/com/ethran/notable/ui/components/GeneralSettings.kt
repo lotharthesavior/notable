@@ -53,6 +53,12 @@ fun GeneralSettings(
                 onSettingsChange(settings.copy(continuousZoom = isChecked))
             })
         SettingToggleRow(
+            label = stringResource(R.string.infinite_canvas),
+            value = settings.infiniteCanvas,
+            onToggle = { isChecked ->
+                onSettingsChange(settings.copy(infiniteCanvas = isChecked))
+            })
+        SettingToggleRow(
             label = stringResource(R.string.continuous_stroke_slider),
             value = settings.continuousStrokeSlider,
             onToggle = { isChecked ->

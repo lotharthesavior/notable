@@ -22,6 +22,7 @@ import com.ethran.notable.data.model.PageLayers
 import com.ethran.notable.editor.drawing.drawBg
 import com.ethran.notable.editor.drawing.drawImage
 import com.ethran.notable.editor.drawing.StrokeRenderers
+import com.ethran.notable.editor.utils.CanvasBounds
 import com.ethran.notable.utils.ensureNotMainThread
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.shipbook.shipbooksdk.Log
@@ -50,13 +51,14 @@ class PageContentRenderer @Inject constructor(
         return withContext(Dispatchers.Default) {
             val (contentWidth, contentHeight) = computeContentDimensions(data)
             val size = resolveRenderSize(contentWidth, contentHeight, target)
+            val origin = computeContentOrigin(data)
 
             Log.d("PageContentRenderer", "size: ${size.width}, ${size.height}, ${size.scale}")
             createBitmap(size.width, size.height).also { bitmap ->
                 drawPage(
                     canvas = Canvas(bitmap),
                     data = data,
-                    scroll = Offset.Zero,
+                    scroll = origin,
                     scaleFactor = size.scale
                 )
             }
@@ -137,19 +139,39 @@ class PageContentRenderer @Inject constructor(
     }
 
     // Returns (width, height)
+    /**
+     * Top-left corner of the page's content: the page origin, or further up and left when an
+     * infinite-canvas page has content at negative coordinates. Render from here so it isn't cut.
+     */
+    fun computeContentOrigin(data: PageWithData): Offset {
+        // PDF and image backgrounds are anchored at the page origin; keep them aligned.
+        if (data.page.getBackgroundType() != Native) return Offset.Zero
+        val minLeft = listOfNotNull(
+            data.strokes.minOfOrNull { it.left },
+            data.images.minOfOrNull { it.x.toFloat() },
+        ).minOrNull()
+        val minTop = listOfNotNull(
+            data.strokes.minOfOrNull { it.top },
+            data.images.minOfOrNull { it.y.toFloat() },
+        ).minOrNull()
+        return CanvasBounds.contentOrigin(minLeft = minLeft, minTop = minTop)
+    }
+
+    /** Content size measured from [computeContentOrigin]. */
     fun computeContentDimensions(data: PageWithData): Pair<Int, Int> {
         if (data.strokes.isEmpty() && data.images.isEmpty()) {
             return SCREEN_WIDTH to SCREEN_HEIGHT
         }
 
+        val origin = computeContentOrigin(data)
         val strokeBottom = data.strokes.maxOfOrNull { it.bottom.toInt() } ?: 0
         val strokeRight = data.strokes.maxOfOrNull { it.right.toInt() } ?: 0
         val imageBottom = data.images.maxOfOrNull { it.y + it.height } ?: 0
         val imageRight = data.images.maxOfOrNull { it.x + it.width } ?: 0
 
-        val rawHeight = maxOf(strokeBottom, imageBottom) +
+        val rawHeight = maxOf(strokeBottom, imageBottom) - origin.y.toInt() +
                 if (GlobalAppSettings.current.visualizePdfPagination) 0 else 50
-        val rawWidth = maxOf(strokeRight, imageRight) + 50
+        val rawWidth = maxOf(strokeRight, imageRight) - origin.x.toInt() + 50
 
         val height = rawHeight.coerceAtLeast(SCREEN_HEIGHT)
         val width = rawWidth.coerceAtLeast(SCREEN_WIDTH)

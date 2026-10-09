@@ -22,6 +22,7 @@ import com.ethran.notable.editor.EditorViewModel
 import com.ethran.notable.editor.PageView
 import com.ethran.notable.ui.convertDpToPixel
 import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Vertical scroll indicator (right side).
@@ -40,11 +41,15 @@ fun ScrollIndicator(viewModel: EditorViewModel, page: PageView) {
         // Total scrollable height approximation:
         // page.height is the total content height (page coordinates)
         // page.scroll.y + viewportHeightPx ensures indicator still shows while near bottom
-        val virtualHeight = max(page.height, page.scroll.y.toInt() + viewportHeightPx)
+        // On an infinite canvas the scroll can be negative, so the range starts above the origin.
+        val virtualTop = min(0, page.scroll.y.toInt())
+        val virtualHeight =
+            max(page.height, page.scroll.y.toInt() + viewportHeightPx) - virtualTop
         if (virtualHeight <= viewportHeightPx) return@BoxWithConstraints
 
         val indicatorSizeDp = (viewportHeightPx / virtualHeight.toFloat()) * this.maxHeight.value
-        val indicatorPositionDp = (page.scroll.y / virtualHeight.toFloat()) * this.maxHeight.value
+        val indicatorPositionDp =
+            ((page.scroll.y - virtualTop) / virtualHeight.toFloat()) * this.maxHeight.value
 
         if (!toolbarState.isToolbarOpen) return@BoxWithConstraints
 
@@ -79,11 +84,14 @@ fun HorizontalScrollIndicator(viewModel: EditorViewModel, page: PageView) {
             // Total scrollable width approximation:
             // page.width is the total content width (page coordinates)
             // page.scroll.x + viewportWidthPx ensures indicator still shows while near right edge
-            val virtualWidth = max(page.viewWidth, page.scroll.x.toInt() + viewportWidthPx)
+            val virtualLeft = min(0, page.scroll.x.toInt())
+            val virtualWidth =
+                max(page.viewWidth, page.scroll.x.toInt() + viewportWidthPx) - virtualLeft
             if (virtualWidth <= viewportWidthPx) return@BoxWithConstraints
 
             val indicatorSizeDp = (viewportWidthPx / virtualWidth.toFloat()) * this.maxWidth.value
-            val indicatorPositionDp = (page.scroll.x / virtualWidth.toFloat()) * this.maxWidth.value
+            val indicatorPositionDp =
+                ((page.scroll.x - virtualLeft) / virtualWidth.toFloat()) * this.maxWidth.value
 
             if (!toolbarState.isToolbarOpen) return@BoxWithConstraints
 

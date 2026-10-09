@@ -43,6 +43,8 @@ data class AppSettings(
     val toolbarPosition: Position = Position.Top,
     val smoothScroll: Boolean = true,
     val continuousZoom: Boolean = false,
+    // Lets native-background pages scroll above and left of the page origin.
+    val infiniteCanvas: Boolean = false,
     val continuousStrokeSlider: Boolean = false,
     val paginatePdf: Boolean = true,
     val visualizePdfPagination: Boolean = false,

@@ -33,6 +33,7 @@ import com.ethran.notable.editor.canvas.CanvasEventBus.drawingInProgress
 import com.ethran.notable.editor.canvas.CanvasEventBus.waitForDrawing
 import com.ethran.notable.editor.drawing.drawBg
 import com.ethran.notable.editor.drawing.drawOnCanvasFromPage
+import com.ethran.notable.editor.utils.CanvasBounds
 import com.ethran.notable.editor.utils.div
 import com.ethran.notable.editor.utils.divideStrokesFromCut
 import com.ethran.notable.editor.utils.loadHQPagePreview
@@ -160,6 +161,10 @@ class PageView(
 
     val isTransformationAllowed: Boolean
         get() = pageDataManager.isTransformationAllowedForCurrentPage()
+
+    /** True when this page may scroll above and left of its origin (see [CanvasBounds]). */
+    val isInfiniteCanvas: Boolean
+        get() = pageDataManager.isInfiniteCanvasForCurrentPage()
 
 
     // we need to observe zoom level, to adjust strokes size.
@@ -574,8 +579,7 @@ class PageView(
 
         waitForDrawingWithSnack()
 
-        scroll =
-            Offset((scroll.x + delta.x).coerceAtLeast(0f), (scroll.y + delta.y).coerceAtLeast(0f))
+        scroll = CanvasBounds.clampScroll(scroll + delta, isInfiniteCanvas)
 
         CanvasEventBus.forceUpdate.emit(null)
     }
@@ -599,15 +603,12 @@ class PageView(
 //        log.d("Update scroll, dragDelta: $dragDelta, scroll: $scroll, zoomLevel.value: $zoomLevel.value")
         // drag delta is in screen coordinates,
         // so we have to scale it back to page coordinates.
-        var deltaInPage = Offset(dragDelta.x / zoomLevel.value, dragDelta.y / zoomLevel.value)
-
-        // Cut, so we won't shift outside the screen.
-        if (scroll.x + deltaInPage.x < 0) {
-            deltaInPage = deltaInPage.copy(x = -scroll.x)
-        }
-        if (scroll.y + deltaInPage.y < 0) {
-            deltaInPage = deltaInPage.copy(y = -scroll.y)
-        }
+        // Cut, so we won't shift past the page origin (unless the canvas is infinite).
+        val deltaInPage = CanvasBounds.limitScrollDelta(
+            scroll = scroll,
+            delta = Offset(dragDelta.x / zoomLevel.value, dragDelta.y / zoomLevel.value),
+            infinite = isInfiniteCanvas,
+        )
 
         // There is nothing to do, return.
         if (deltaInPage == Offset.Zero) return
@@ -786,11 +787,13 @@ class PageView(
 
 
         //make sure that we won't go outside canvas.
-        val dx = (scroll.x - dstRect.left).coerceAtMost(0f)
-        val dy = (scroll.y - dstRect.top).coerceAtMost(0f)
-        if (dx != 0f || dy != 0f) {
-            matrix.postTranslate(dx, dy)
-            matrix.mapRect(dstRect, srcRect)
+        if (!isInfiniteCanvas) {
+            val dx = (scroll.x - dstRect.left).coerceAtMost(0f)
+            val dy = (scroll.y - dstRect.top).coerceAtMost(0f)
+            if (dx != 0f || dy != 0f) {
+                matrix.postTranslate(dx, dy)
+                matrix.mapRect(dstRect, srcRect)
+            }
         }
         scaledCanvas.drawBitmap(windowedBitmap, matrix, null)
 
@@ -798,9 +801,7 @@ class PageView(
         val deltaScrollPage = Offset(-dstRect.left / newZoom, -dstRect.top / newZoom)
 
 
-        val newScrollX = (scroll.x + deltaScrollPage.x).coerceAtLeast(0f)
-        val newScrollY = (scroll.y + deltaScrollPage.y).coerceAtLeast(0f)
-        scroll = Offset(newScrollX, newScrollY)
+        scroll = CanvasBounds.clampScroll(scroll + deltaScrollPage, isInfiniteCanvas)
 
         // Swap in the new bitmap and update zoom on the windowed canvas
         windowedBitmap = scaledBitmap
