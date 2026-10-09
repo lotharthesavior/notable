@@ -20,6 +20,10 @@ const val ZOOM_SNAP_THRESHOLD = 0.02f
 // fingers exactly; lower zooms more gently. Tune to taste.
 const val ZOOM_SENSITIVITY = 0.4f
 
+// Discrete (non-continuous) zoom: the zoomed-out level is the screen-fit ratio times this,
+// so a pinch-out shows 20% more of the page than fitting its width to the screen.
+const val DISCRETE_ZOOM_OUT_FACTOR = 0.8f
+
 // Bounds the zoom level is clamped to.
 const val MIN_ZOOM = 0.1f
 const val MAX_ZOOM = 10.0f

@@ -42,6 +42,7 @@ import com.ethran.notable.editor.utils.plus
 import com.ethran.notable.editor.utils.strokeBounds
 import com.ethran.notable.editor.utils.times
 import com.ethran.notable.editor.utils.toIntOffset
+import com.ethran.notable.gestures.DISCRETE_ZOOM_OUT_FACTOR
 import com.ethran.notable.gestures.MAX_ZOOM
 import com.ethran.notable.gestures.MIN_ZOOM
 import com.ethran.notable.gestures.ZOOM_SENSITIVITY
@@ -663,7 +664,8 @@ class PageView(
             // so it is negative when pinching in (zoom out) and positive when
             // spreading (zoom in); split on 0, not 1.
             if (scaleDelta <= 0f) {
-                if (SCREEN_HEIGHT > SCREEN_WIDTH) portraitRatio else 1.0f
+                val fit = if (SCREEN_HEIGHT > SCREEN_WIDTH) portraitRatio else 1.0f
+                fit * DISCRETE_ZOOM_OUT_FACTOR
             } else {
                 if (SCREEN_HEIGHT > SCREEN_WIDTH) 1.0f else portraitRatio
             }
