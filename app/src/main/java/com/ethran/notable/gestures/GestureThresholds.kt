@@ -20,9 +20,23 @@ const val ZOOM_SNAP_THRESHOLD = 0.02f
 // fingers exactly; lower zooms more gently. Tune to taste.
 const val ZOOM_SENSITIVITY = 0.4f
 
-// Discrete (non-continuous) zoom: the zoomed-out level is the screen-fit ratio times this,
-// so a pinch-out shows 20% more of the page than fitting its width to the screen.
-const val DISCRETE_ZOOM_OUT_FACTOR = 0.8f
+// Discrete (non-continuous) zoom levels, smallest first. Each pinch moves one step:
+// half size, original size, double size.
+val DISCRETE_ZOOM_STEPS = floatArrayOf(0.5f, 1.0f, 2.0f)
+
+/**
+ * The next discrete zoom level from [current]: the nearest step above it when zooming in, the
+ * nearest step below it when zooming out. Stays at the last step once the range ends.
+ */
+fun nextDiscreteZoom(current: Float, zoomIn: Boolean, steps: FloatArray = DISCRETE_ZOOM_STEPS): Float {
+    // Tolerance so a level that is a step, give or take float error, counts as that step.
+    val epsilon = 0.001f
+    return if (zoomIn) {
+        steps.firstOrNull { it > current + epsilon } ?: steps.last()
+    } else {
+        steps.lastOrNull { it < current - epsilon } ?: steps.first()
+    }
+}
 
 // Bounds the zoom level is clamped to.
 const val MIN_ZOOM = 0.1f
