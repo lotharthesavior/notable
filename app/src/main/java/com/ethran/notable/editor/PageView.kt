@@ -328,11 +328,12 @@ class PageView(
                     }
                     logCache.d("All strokes loaded in $timeToLoad ms")
                 }
-                // TODO: If we put it in loadPage(…) sometimes it will try to refresh
-                //  without seeing strokes, I have no idea why.
+                // Redraw the loaded strokes straight into the page bitmap. A forceUpdate event
+                // is not enough here: on page open it can fire before DrawCanvas subscribes, and
+                // the event is dropped, leaving the (possibly stale) disk preview on screen.
                 coroutineScope.launch(Dispatchers.Main) {
-//                    delay(100)
-                    CanvasEventBus.forceUpdate.emit(null)
+                    drawAreaScreenCoordinates(Rect(0, 0, windowedCanvas.width, windowedCanvas.height))
+                    CanvasEventBus.refreshUiImmediately.emit(Unit)
                 }
 //                sleep(5000)
 
