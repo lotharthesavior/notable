@@ -376,4 +376,38 @@ class GestureClassifierTest {
             )
         )
     }
+
+    // --- Infinite canvas: free pan --------------------------------------------------
+
+    @Test
+    fun `with free pan one finger enters transform in any direction`() {
+        tracker.down(1, 100f, 100f, T0)
+        tracker.moveTo(1, 120f, 100f, T0 + 40) // 20 px < 30 px pan-enter
+        assertFalse(shouldEnterTransform(tracker, GestureMode.Normal, thresholds, false, freePan = true))
+        tracker.moveTo(1, 140f, 100f, T0 + 60) // horizontal 40 px
+        assertTrue(shouldEnterTransform(tracker, GestureMode.Normal, thresholds, false, freePan = true))
+    }
+
+    @Test
+    fun `without free pan one finger never enters transform`() {
+        tracker.down(1, 100f, 100f, T0)
+        tracker.moveTo(1, 300f, 300f, T0 + 60)
+        assertFalse(shouldEnterTransform(tracker, GestureMode.Normal, thresholds, false, freePan = false))
+    }
+
+    @Test
+    fun `free pan leaves a held finger to selection`() {
+        tracker.down(1, 100f, 100f, T0)
+        tracker.moveTo(1, 105f, 100f, T0 + 40)
+        assertFalse(shouldEnterTransform(tracker, GestureMode.Normal, thresholds, false, freePan = true))
+        assertFalse(shouldEnterTransform(tracker, GestureMode.Selection, thresholds, false, freePan = true))
+    }
+
+    @Test
+    fun `live zoom suppresses the discrete step at gesture end`() {
+        tracker.down(1, 0f, 0f, T0)
+        tracker.down(2, 100f, 0f, T0 + 10)
+        tracker.moveTo(2, 200f, 0f, T0 + 150)
+        assertNull(discretePinchZoom(tracker, GestureFlags(smoothScroll = true, continuousZoom = true)))
+    }
 }

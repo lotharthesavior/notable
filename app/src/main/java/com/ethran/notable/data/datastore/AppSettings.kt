@@ -84,6 +84,13 @@ data class AppSettings(
     val destructiveMigrations: Boolean = false,
 
     ) {
+    /**
+     * Zoom follows the fingers live (no stepping at gesture end). On with the infinite canvas,
+     * where panning and zooming are meant to be one fluid movement.
+     */
+    val effectiveContinuousZoom: Boolean
+        get() = continuousZoom || infiniteCanvas
+
     enum class GestureAction {
         None, Undo, Redo, PreviousPage, NextPage, ChangeTool, ToggleZen, Select
     }

@@ -178,7 +178,7 @@ class EditorControlTower(
             return
         scope.launch {
             scrollInProgress.withLock {
-                if (GlobalAppSettings.current.simpleRendering || !GlobalAppSettings.current.continuousZoom)
+                if (GlobalAppSettings.current.simpleRendering || !GlobalAppSettings.current.effectiveContinuousZoom)
                     page.simpleUpdateZoom(delta)
                 else
                     page.updateZoom(delta, center)

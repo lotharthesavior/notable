@@ -207,4 +207,33 @@ class PointerTrackerTest {
         tracker.moveTo(2, 240f, 0f, T0 + 30)
         assertEquals(0f, tracker.netCentroidTravel().x, 1e-4f)
     }
+
+    @Test
+    fun `pinch pauses while a finger is lifted and resumes with the finger that joins`() {
+        tracker.down(1, 0f, 0f, T0)
+        tracker.down(2, 100f, 0f, T0 + 10)
+        assertEquals(0f, tracker.consumePinchDelta(), 1e-6f) // establishes reference
+        tracker.moveTo(2, 200f, 0f, T0 + 50)
+        assertEquals(1f, tracker.consumePinchDelta(), 1e-6f)
+
+        // Finger 2 lifts; finger 1 keeps panning. That pan must not read as a zoom.
+        tracker.up(2, 200f, 0f, T0 + 60)
+        tracker.moveTo(1, 50f, 0f, T0 + 80)
+        assertEquals(0f, tracker.consumePinchDelta(), 1e-6f)
+
+        // A new finger joins mid-gesture: zoom resumes from the new pair's distance.
+        tracker.down(3, 150f, 0f, T0 + 100)
+        assertEquals(0f, tracker.consumePinchDelta(), 1e-6f) // new reference: 100
+        tracker.moveTo(3, 250f, 0f, T0 + 140)
+        assertEquals(1f, tracker.consumePinchDelta(), 1e-6f) // 200/100 - 1
+    }
+
+    @Test
+    fun `pinch ratio is measured from where the fingers were when the second one landed`() {
+        tracker.down(1, 0f, 0f, T0)
+        tracker.moveTo(1, 0f, 300f, T0 + 80) // first finger travels before the second lands
+        tracker.down(2, 200f, 300f, T0 + 150)
+        tracker.moveTo(2, 400f, 300f, T0 + 250)
+        assertEquals(1f, tracker.pinchRatio(), 1e-6f) // 400/200 - 1
+    }
 }

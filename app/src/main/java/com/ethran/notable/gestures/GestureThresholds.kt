@@ -40,8 +40,8 @@ fun nextDiscreteZoom(current: Float, zoomIn: Boolean, steps: FloatArray = DISCRE
 }
 
 // Bounds the zoom level is clamped to.
-const val MIN_ZOOM = 0.1f
-const val MAX_ZOOM = 10.0f
+const val MIN_ZOOM = 0.5f
+const val MAX_ZOOM = 2.0f
 
 // Simultaneous finger contacts for the QuickNav swipe-up.
 const val QUICK_NAV_FINGER_COUNT = 3

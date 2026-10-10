@@ -658,7 +658,7 @@ class PageView(
         // TODO: Better snapping logic
         val portraitRatio = SCREEN_WIDTH.toFloat() / SCREEN_HEIGHT
 
-        return if (!GlobalAppSettings.current.continuousZoom) {
+        return if (!GlobalAppSettings.current.effectiveContinuousZoom) {
             // Discrete zoom mode - one step through DISCRETE_ZOOM_STEPS per pinch.
             // scaleDelta is a growth ratio minus 1 (see PointerTracker.pinchRatio),
             // so it is negative when pinching in (zoom out) and positive when

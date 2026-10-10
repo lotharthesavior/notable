@@ -92,16 +92,29 @@ class PointerTracker(
             pointers[id] = PointerTrack(position, position)
             val pressedNow = pressedCount()
             if (pressedNow > maxConcurrentPressed) maxConcurrentPressed = pressedNow
-            if (pinchPair == null && pressedNow == 2) {
-                val ids = pointers.filterValues { it.pressed }.keys.toList()
-                pinchPair = ids[0] to ids[1]
-                pinchBaselineDistance = pinchDistance { it.currentPosition }
-            }
         } else {
             track.currentPosition = position
             track.pressed = pressed
         }
+        refreshPinchPair()
         advanceNetTravel()
+    }
+
+    /**
+     * Keeps the pinch pair on the two fingers currently down. The pair forms when a second
+     * finger lands and re-forms when a different pair is down (a finger lifted and another
+     * joined mid-gesture), so zooming continues without restarting the gesture. With fewer
+     * than two fingers down the old pair is kept: discrete zoom is evaluated at gesture end.
+     */
+    private fun refreshPinchPair() {
+        val pressedIds = pointers.filterValues { it.pressed }.keys
+        if (pressedIds.size != 2) return
+        val pair = pinchPair
+        if (pair != null && pair.first in pressedIds && pair.second in pressedIds) return
+        val ids = pressedIds.toList()
+        pinchPair = ids[0] to ids[1]
+        pinchBaselineDistance = pinchDistance { it.currentPosition }
+        lastPinchDistance = null
     }
 
     private fun advanceNetTravel() {
@@ -285,6 +298,13 @@ class PointerTracker(
      * once per frame.
      */
     fun consumePinchDelta(): Float {
+        // Only zoom while both fingers of the pair are down; a lifted finger's stale
+        // position would otherwise turn the other finger's pan into a zoom.
+        val (a, b) = pinchPair ?: return 0f
+        if (pointers[a]?.pressed != true || pointers[b]?.pressed != true) {
+            lastPinchDistance = null
+            return 0f
+        }
         val currentDistance = pinchDistance { it.currentPosition } ?: return 0f
         val lastDistance = lastPinchDistance
         lastPinchDistance = currentDistance

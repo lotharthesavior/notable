@@ -232,13 +232,18 @@ private fun applyModeTransitions(recognizer: Recognizer, ctx: GestureContext) {
         )
         ctx.actions.showHint("Selection mode!")
     }
-    if (ctx.appSettings.smoothScroll && shouldEnterScroll(tracker, recognizer.mode, ctx.thresholds))
+    // On the infinite canvas one finger pans freely (Transform), so the vertical-only Scroll
+    // mode is skipped.
+    if (ctx.appSettings.smoothScroll && !ctx.appSettings.infiniteCanvas &&
+        shouldEnterScroll(tracker, recognizer.mode, ctx.thresholds)
+    )
         applyGestureMode(recognizer, GestureMode.Scroll, ctx)
     if (shouldEnterTransform(
             tracker,
             recognizer.mode,
             ctx.thresholds,
-            ctx.appSettings.continuousZoom
+            ctx.appSettings.effectiveContinuousZoom,
+            freePan = ctx.appSettings.infiniteCanvas,
         )
     )
         applyGestureMode(recognizer, GestureMode.Transform, ctx)
@@ -256,7 +261,7 @@ private fun streamActiveMode(recognizer: Recognizer, ctx: GestureContext) {
             // Zoom and pan together: scale about the pinch center, then
             // translate by the centroid delta (the same point for two
             // fingers), so the content stays under the fingers.
-            if (ctx.appSettings.continuousZoom) {
+            if (ctx.appSettings.effectiveContinuousZoom) {
                 val zoom = recognizer.tracker.consumePinchDelta()
                 if (zoom != 0f)
                     ctx.actions.onPinchToZoom(zoom, recognizer.tracker.pinchCenter())
@@ -295,7 +300,7 @@ private fun finishModalGesture(recognizer: Recognizer, ctx: GestureContext): Boo
             // A discrete pinch whose midpoint drifted ended up here as a pan; still zoom.
             val flags = GestureFlags(
                 smoothScroll = ctx.appSettings.smoothScroll,
-                continuousZoom = ctx.appSettings.continuousZoom,
+                continuousZoom = ctx.appSettings.effectiveContinuousZoom,
             )
             discretePinchZoom(recognizer.tracker, flags)?.let { dispatchEvent(it, ctx) }
             log.d("Transform (pan/zoom) ended -- final redraw")
@@ -326,7 +331,7 @@ private suspend fun AwaitPointerEventScope.handleGestureEnd(
         mode = recognizer.mode,
         flags = GestureFlags(
             smoothScroll = ctx.appSettings.smoothScroll,
-            continuousZoom = ctx.appSettings.continuousZoom,
+            continuousZoom = ctx.appSettings.effectiveContinuousZoom,
         ),
         thresholds = ctx.thresholds,
     )

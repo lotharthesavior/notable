@@ -135,14 +135,25 @@ fun isHoldingOneFinger(tracker: PointerTracker, thresholds: GestureThresholds): 
  *
  * A one-finger scroll upgrades as soon as a second finger lands: fingers rarely touch down
  * at the same instant, and the first one may already have scrolled before the second arrives.
+ *
+ * With [freePan] (infinite canvas) a single finger enters too, once it travels past the pan
+ * threshold: one finger pans in any direction, and a second finger can join at any time to
+ * zoom without restarting the movement.
  */
 fun shouldEnterTransform(
     tracker: PointerTracker,
     mode: GestureMode,
     thresholds: GestureThresholds,
     continuousZoom: Boolean,
+    freePan: Boolean = false,
 ): Boolean {
-    if (tracker.maxConcurrentPressed != 2 || tracker.pressedCount() != 2) return false
+    val pressed = tracker.pressedCount()
+    if (freePan && mode == GestureMode.Normal &&
+        tracker.maxConcurrentPressed == 1 && pressed == 1
+    ) {
+        return tracker.centroidTravel() > thresholds.panEnterPx
+    }
+    if (tracker.maxConcurrentPressed != 2 || pressed != 2) return false
     if (mode == GestureMode.Scroll) return true
     if (mode != GestureMode.Normal) return false
     val panning = tracker.centroidTravel() > thresholds.panEnterPx
