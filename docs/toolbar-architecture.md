@@ -43,7 +43,7 @@ sealed interface ToolbarElement {
 // ShapeElement — one SHAPE button + shape picker (LINE today); isSelected: mode == Line
 // ModeElement  — eraser / select; isSelected: mode == this.mode
 // ActionElement— undo, redo, paste, reset-view, home, toggle; stateless
-// CustomElement— PAGE_NAV / MENU / IMAGE_PICKER; bespoke rendering
+// CustomElement— PAGE_NAV / MENU / IMAGE_PICKER / ZOOM; bespoke rendering
 // DividerElement (data object) — placeable separator, no button
 ```
 </details>
@@ -125,6 +125,13 @@ Row(toolbar):
     Row(weight 1, horizontalScroll):  layout.scrollable → visibleWhen → ToolbarElementView
     Row:                              layout.pinned     → visibleWhen → ToolbarElementView
 ```
+
+Both zone rows space their buttons `TOOLBAR_ITEM_SPACING` (6 dp) apart, with the same padding at
+the outer edges, so neighbouring round buttons never touch.
+
+The `ZOOM` element renders as **[−] 100% [+]**: the buttons send `ToolbarAction.StepZoom`, the
+percentage sends `ToolbarAction.ResetView`. It reads `ToolbarUiState.zoomLevel` and hides when
+`isZoomAllowed` is false. See [infinite-canvas.md](./infinite-canvas.md) for the zoom levels.
 
 [`ToolbarElementView`](../app/src/main/java/com/ethran/notable/editor/ui/toolbar/ToolbarElementView.kt)
 is the one generic renderer — a `when(element)` over the subtypes. It draws the button via

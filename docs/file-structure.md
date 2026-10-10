@@ -23,7 +23,7 @@ com.ethran.notable/
         - EditorTypes.kt — Basic editor enums (Mode, PlacementMode).
     - ui/ — Editor-specific UI components (Topbar, PageMenu, Selector).
         - toolbar/ — Complex toolbar implementation and various tool buttons.
-    - utils/ — Internal editor utilities (Pen/Eraser logic, Operations, Input handling).
+    - utils/ — Internal editor utilities (Pen/Eraser logic, Operations, Input handling, `CanvasBounds` scroll limits).
     - EditorViewModel.kt — Orchestrates editor state and UI interactions.
     - EditorControlTower.kt — High-level coordination of editor components.
     - PageView.kt — The main composable representing a single page.
@@ -42,7 +42,7 @@ com.ethran.notable/
     - dialogs/ — Modals for configuration and confirmation.
     - theme/ — App styling (Colors, Type, Theme).
 
-- gestures/ — Custom gesture detection (QuickNav gestures, Editor receiver).
+- gestures/ — Custom gesture detection (QuickNav gestures, Editor receiver, pan/zoom; see [infinite-canvas.md](./infinite-canvas.md)).
 
 - di/ — Dependency injection (Hilt modules).
 

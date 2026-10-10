@@ -21,6 +21,9 @@ From the project root:
 
 If you hit a JDK path error, ask the user for their `JAVA_HOME` rather than assuming a path.
 
+The `Makefile` wraps the same checks (`make typecheck`, `make test`, `make build`) and falls back
+to Android Studio's bundled JDK when `JAVA_HOME` is unset.
+
 ---
 
 ## What to Test

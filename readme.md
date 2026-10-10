@@ -250,6 +250,7 @@ Notable is not distributed on Google Play or F-Droid. Official builds are provid
 - Data model and stroke encoding: see [docs/database-structure.md](./docs/database-structure.md)  
 - Page layers: see [docs/layers.md](./docs/layers.md)  
 - Scripted drawing over adb: see [docs/live-draw.md](./docs/live-draw.md)  
+- Infinite canvas, zoom and pan gestures: see [docs/infinite-canvas.md](./docs/infinite-canvas.md)  
 - Additional documentation will be added as needed  
   Note: These documents were AI-generated and lightly verified; refer to the code for the authoritative source.
 
