@@ -3,6 +3,7 @@ package com.ethran.notable.gestures
 import androidx.compose.ui.unit.Density
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -279,15 +280,67 @@ class GestureClassifierTest {
                 continuousZoom = false
             )
         )
-        // Not while already in another mode.
+        // Not while selecting.
         assertFalse(
             shouldEnterTransform(
                 tracker,
-                GestureMode.Scroll,
+                GestureMode.Selection,
                 thresholds,
                 continuousZoom = false
             )
         )
+    }
+
+    @Test
+    fun `a second finger landing during a one-finger scroll upgrades to transform`() {
+        // First finger lands and scrolls before the second one arrives.
+        tracker.down(1, 100f, 100f, T0)
+        tracker.moveTo(1, 100f, 250f, T0 + 80)
+        assertFalse(
+            shouldEnterTransform(tracker, GestureMode.Scroll, thresholds, continuousZoom = false)
+        )
+        tracker.down(2, 300f, 250f, T0 + 200)
+        assertTrue(
+            shouldEnterTransform(tracker, GestureMode.Scroll, thresholds, continuousZoom = false)
+        )
+    }
+
+    @Test
+    fun `a lopsided pinch that ends as a pan still zooms`() {
+        // Finger 1 stays put, finger 2 spreads: the midpoint drifts like a pan.
+        tracker.down(1, 0f, 0f, T0)
+        tracker.down(2, 100f, 0f, T0 + 120)
+        tracker.moveTo(2, 200f, 0f, T0 + 300)
+        assertTrue(
+            shouldEnterTransform(tracker, GestureMode.Normal, thresholds, continuousZoom = false)
+        )
+        assertEquals(GestureEvent.PinchZoom(1f), discretePinchZoom(tracker, noFlags))
+    }
+
+    @Test
+    fun `a two-finger pan without spreading does not zoom`() {
+        tracker.down(1, 0f, 0f, T0)
+        tracker.down(2, 100f, 0f, T0 + 20)
+        tracker.moveTo(1, 0f, 200f, T0 + 200)
+        tracker.moveTo(2, 100f, 200f, T0 + 200)
+        assertNull(discretePinchZoom(tracker, noFlags))
+    }
+
+    @Test
+    fun `a staggered pinch after an early scroll still zooms out`() {
+        tracker.down(1, 100f, 100f, T0)
+        tracker.moveTo(1, 100f, 260f, T0 + 100) // scrolls before the second finger lands
+        tracker.down(2, 500f, 260f, T0 + 250)
+        tracker.moveTo(2, 300f, 260f, T0 + 400) // distance 400 -> 200
+        assertEquals(GestureEvent.PinchZoom(-0.5f), discretePinchZoom(tracker, noFlags))
+    }
+
+    @Test
+    fun `a small spread below the discrete threshold does not zoom`() {
+        tracker.down(1, 0f, 0f, T0)
+        tracker.down(2, 100f, 0f, T0 + 20)
+        tracker.moveTo(2, 125f, 0f, T0 + 200) // ratio 0.25 < 0.3
+        assertNull(discretePinchZoom(tracker, noFlags))
     }
 
     @Test

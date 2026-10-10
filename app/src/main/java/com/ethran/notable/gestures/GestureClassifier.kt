@@ -42,10 +42,7 @@ fun classifyGesture(
     } else if (fingers == 2) {
         if (isTwoFingerTap(tracker, mode, thresholds)) events += GestureEvent.Tap(fingers = 2)
 
-        val pinchRatio = tracker.pinchRatio()
-        if (!flags.continuousZoom && abs(pinchRatio) > PINCH_ZOOM_THRESHOLD) {
-            events += GestureEvent.PinchZoom(pinchRatio)
-        }
+        discretePinchZoom(tracker, flags)?.let { events += it }
     }
 
     if (mode == GestureMode.Normal) {
@@ -80,6 +77,17 @@ fun classifyGesture(
 }
 
 // --- Classification predicates: thresholds applied to tracker geometry. ---
+
+/**
+ * The discrete (stepped) zoom a two-finger gesture asks for, or null. Checked at gesture end
+ * whatever mode the gesture finished in: a real pinch rarely keeps its midpoint still (one
+ * finger usually moves more), so it often ends as a two-finger pan and must still zoom.
+ */
+fun discretePinchZoom(tracker: PointerTracker, flags: GestureFlags): GestureEvent.PinchZoom? {
+    if (flags.continuousZoom || tracker.maxConcurrentPressed != 2) return null
+    val pinchRatio = tracker.pinchRatio()
+    return if (abs(pinchRatio) > PINCH_ZOOM_THRESHOLD) GestureEvent.PinchZoom(pinchRatio) else null
+}
 
 fun isOneFingerTap(tracker: PointerTracker, thresholds: GestureThresholds): Boolean {
     return tracker.totalTravel() < thresholds.tapMovementTolerancePx &&
@@ -124,6 +132,9 @@ fun isHoldingOneFinger(tracker: PointerTracker, thresholds: GestureThresholds): 
  * ([GestureThresholds.panEnterPx]) or, with continuous zoom on, on a pinch
  * ([PINCH_ZOOM_THRESHOLD_CONTINUOUS]). With continuous zoom off a pure pinch
  * stays in Normal, so the discrete snap-zoom fires at gesture end instead.
+ *
+ * A one-finger scroll upgrades as soon as a second finger lands: fingers rarely touch down
+ * at the same instant, and the first one may already have scrolled before the second arrives.
  */
 fun shouldEnterTransform(
     tracker: PointerTracker,
@@ -131,8 +142,9 @@ fun shouldEnterTransform(
     thresholds: GestureThresholds,
     continuousZoom: Boolean,
 ): Boolean {
-    if (mode != GestureMode.Normal) return false
     if (tracker.maxConcurrentPressed != 2 || tracker.pressedCount() != 2) return false
+    if (mode == GestureMode.Scroll) return true
+    if (mode != GestureMode.Normal) return false
     val panning = tracker.centroidTravel() > thresholds.panEnterPx
     val pinching = continuousZoom && abs(tracker.pinchRatio()) > PINCH_ZOOM_THRESHOLD_CONTINUOUS
     return panning || pinching

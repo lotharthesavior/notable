@@ -292,6 +292,12 @@ private fun finishModalGesture(recognizer: Recognizer, ctx: GestureContext): Boo
         }
 
         GestureMode.Transform -> {
+            // A discrete pinch whose midpoint drifted ended up here as a pan; still zoom.
+            val flags = GestureFlags(
+                smoothScroll = ctx.appSettings.smoothScroll,
+                continuousZoom = ctx.appSettings.continuousZoom,
+            )
+            discretePinchZoom(recognizer.tracker, flags)?.let { dispatchEvent(it, ctx) }
             log.d("Transform (pan/zoom) ended -- final redraw")
             // A zoom leaves the snapshot upscaled; redraw once at the settled
             // transform. (A pan-only transform redraws harmlessly.)

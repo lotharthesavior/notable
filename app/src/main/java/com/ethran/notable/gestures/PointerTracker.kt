@@ -57,6 +57,11 @@ class PointerTracker(
     // even after a finger lifts: discrete zoom is evaluated at gesture end.
     private var pinchPair: Pair<Long, Long>? = null
 
+    // Finger distance when the pinch pair formed. Measured from where both fingers were at that
+    // moment, not from their down positions: the first finger may already have moved (scrolled)
+    // before the second one landed.
+    private var pinchBaselineDistance: Float? = null
+
     // Reference for incremental drag deltas: centroid of pressed pointers and
     // the id set it was computed from. When the set changes (finger lands,
     // lifts, or id churns) the reference is reset instead of accumulating a
@@ -90,6 +95,7 @@ class PointerTracker(
             if (pinchPair == null && pressedNow == 2) {
                 val ids = pointers.filterValues { it.pressed }.keys.toList()
                 pinchPair = ids[0] to ids[1]
+                pinchBaselineDistance = pinchDistance { it.currentPosition }
             }
         } else {
             track.currentPosition = position
@@ -264,10 +270,10 @@ class PointerTracker(
         return (position(trackA) - position(trackB)).getDistance()
     }
 
-    /** Pinch growth ratio since the gesture start (0 = unchanged). */
+    /** Pinch growth ratio since the second finger landed (0 = unchanged). */
     fun pinchRatio(): Float {
         val currentDistance = pinchDistance { it.currentPosition } ?: return 0f
-        val initialDistance = pinchDistance { it.downPosition } ?: return 0f
+        val initialDistance = pinchBaselineDistance ?: return 0f
 
         if (initialDistance == 0f) return 0f
         return currentDistance / initialDistance - 1f

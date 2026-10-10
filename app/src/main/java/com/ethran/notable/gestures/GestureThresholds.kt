@@ -12,7 +12,8 @@ const val DOUBLE_TAP_TIMEOUT_MS = 170L
 const val DOUBLE_TAP_MIN_MS = 20L
 
 // Pinch thresholds are distance *ratios*, also density-independent.
-const val PINCH_ZOOM_THRESHOLD = 0.5f
+// Discrete zoom: the finger distance must grow or shrink by this ratio (30%).
+const val PINCH_ZOOM_THRESHOLD = 0.3f
 const val PINCH_ZOOM_THRESHOLD_CONTINUOUS = 0.25f
 const val ZOOM_SNAP_THRESHOLD = 0.02f
 
